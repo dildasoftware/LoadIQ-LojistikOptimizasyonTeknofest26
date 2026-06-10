@@ -129,7 +129,7 @@
 ### 1. Depoyu Klonlayın
 
 ```bash
-git clone https://github.com/[KULLANICI_ADI]/loadiq.git
+git clone https://github.com/dildasoftware/LoadIQ-LojistikOptimizasyonTeknofest26
 cd loadiq
 ```
 
@@ -298,10 +298,10 @@ Bu proje **MIT Lisansı** ile lisanslanmıştır.
 
 |           |                     |
 | --------- | ------------------- |
-| Takım Adı | [TAKIM_ADI]         |
+| Takım Adı | [NASİP]         |
 | Danışman  | [DANIŞMAN_ADI]      |
-| E-posta   | [EMAIL_ADRESİ]      |
-| GitHub    | [GITHUB_PROFIL_URL] |
+| E-posta   | [bilbildilara77@gmail.com]      |
+| GitHub    | [https://github.com/dildasoftware/LoadIQ-LojistikOptimizasyonTeknofest26] |
 
 ---
 
