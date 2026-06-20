@@ -233,6 +233,7 @@ def run_optimization(forecast_path: str, vehicles_path: str, rentals_path: str,
     all_assignments = []  # Juri formatinda: her satir = 1 arac atamasi
     toplam_kiralik_maliyet = 0.0
     toplam_spot_maliyet = 0.0
+    arac_no_counter = 1  # Global arac numarasi sayaci
     
     for idx, row in forecast_df.iterrows():
         tarih = row['Tarih']
@@ -243,27 +244,31 @@ def run_optimization(forecast_path: str, vehicles_path: str, rentals_path: str,
         # Mesafe hesabi (kus ucusu)
         distance_km = get_distance(coords, cikis, varis)
         
+        # Bu guzergah-gun icin kalan desi takibi
+        desi_kalan = tahmin_desi
+        
         # --- KIRALIK ARACLAR (FAQ #3: zorunlu, bos bile olsa) ---
         kiralik_mask = (rentals_df['Cikis'] == cikis) & (rentals_df['Varis'] == varis)
         kiralik_rows = rentals_df[kiralik_mask]
         
-        kiralik_kapasite = 0.0
+        kiralik_kapasite_toplam = 0.0
         
         for _, kr in kiralik_rows.iterrows():
             arac_turu = kr['AracTuru']
-            arac_sayisi = kr['AracSayisi']
+            arac_sayisi = int(kr['AracSayisi'])
             kapasite_per = cap_map.get(arac_turu, 0)
             
             kiralik_gunluk = kiralik_gunluk_map.get(arac_turu, 0)
             kiralik_km = kiralik_km_map.get(arac_turu, 0)
             birim_maliyet = kiralik_gunluk + kiralik_km * distance_km
             
-            # Her kiralik araci ayri satir olarak ata
-            for _ in range(arac_sayisi):
-                # Atanan desi: aracin tasiyabilecegi maks desi
-                atanan = min(kapasite_per, max(0, tahmin_desi - kiralik_kapasite))
+            # Her kiralik araci ayri satir olarak ata (FAQ#3: boş bile olsa)
+            for arac_i in range(arac_sayisi):
+                # Bu arac ne kadar yuk tasiyor?
+                atanan = min(kapasite_per, max(0.0, desi_kalan))
                 
                 all_assignments.append({
+                    'Arac No': arac_no_counter,
                     'Tarih': tarih,
                     'Arac Tipi': f'Kiralik {arac_turu}',
                     'Cikis TM': cikis,
@@ -272,23 +277,26 @@ def run_optimization(forecast_path: str, vehicles_path: str, rentals_path: str,
                     'Maliyet': round(birim_maliyet, 2)
                 })
                 
-                kiralik_kapasite += kapasite_per
+                desi_kalan -= atanan
+                kiralik_kapasite_toplam += kapasite_per
                 toplam_kiralik_maliyet += birim_maliyet
+                arac_no_counter += 1
         
         # --- SPOT ARACLAR ---
-        kalan_desi = max(0, tahmin_desi - kiralik_kapasite)
+        kalan_desi = max(0.0, tahmin_desi - kiralik_kapasite_toplam)
         
         if kalan_desi > 0:
             # Unified solver with %10 fill constraint built-in
             spot_result = solve_spot_vehicles(kalan_desi, distance_km, vehicles_df)
             
-            # Spot araclari juri formatinda ekle
+            # Spot araclari juri formatinda ekle — her satir = 1 araç
             desi_dagitilacak = kalan_desi
             for spot in spot_result:
-                for _ in range(spot['Sayi']):
-                    atanan = min(spot['Kapasite'], desi_dagitilacak)
+                for arac_i in range(spot['Sayi']):
+                    atanan = min(spot['Kapasite'], max(0.0, desi_dagitilacak))
                     
                     all_assignments.append({
+                        'Arac No': arac_no_counter,
                         'Tarih': tarih,
                         'Arac Tipi': f'Spot {spot["AracTuru"]}',
                         'Cikis TM': cikis,
@@ -299,12 +307,16 @@ def run_optimization(forecast_path: str, vehicles_path: str, rentals_path: str,
                     
                     desi_dagitilacak -= atanan
                     toplam_spot_maliyet += spot['BirimMaliyet']
+                    arac_no_counter += 1
         
         if (idx + 1) % 100 == 0:
             print(f"  Optimizasyon ilerleme: {idx+1}/{len(forecast_df)}")
     
     # --- CIKTI OLUSTUR ---
-    result_df = pd.DataFrame(all_assignments)
+    # Sutun sirasi: Arac No | Tarih | Arac Tipi | Cikis TM | Varis TM | Atanan Desi | Maliyet
+    result_df = pd.DataFrame(all_assignments)[
+        ['Arac No', 'Tarih', 'Arac Tipi', 'Cikis TM', 'Varis TM', 'Atanan Desi', 'Maliyet']
+    ]
     
     # Toplam maliyet
     toplam_maliyet = toplam_kiralik_maliyet + toplam_spot_maliyet
