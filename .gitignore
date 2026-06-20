@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+.venv/
+venv/
+
+# Data files (add manually)
+data/processed/*.csv
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Analysis / scratch
+data/raw/analyze_deep.py
+data/raw/faq_text.txt
+src/check_anomalies.py
+src/summary_stats.py
+
+# OS
+Thumbs.db
+.DS_Store

@@ -1,314 +1,195 @@
-# 🚛 LoadIQ — Akıllı Yük Dağıtım & Rota Optimizasyon Sistemi
+# 🚛 LoadIQ — Akıllı Lojistik Optimizasyon Sistemi
 
-> **TEKNOFEST 2025 | Lojistik & Ulaştırma Kategorisi**
+> **TEKNOFEST 2026 | Lojistik & Ulaştırma Kategorisi**
 >
-> Türkiye genelindeki transfer merkezleri arasında desi bazlı talep verilerini, araç kapasitelerini ve maliyet parametrelerini bütünleşik bir optimizasyon motoru üzerinden işleyerek **minimum toplam maliyet** ile **maksimum araç doluluk oranını** hedefleyen akıllı bir yük planlama sistemi.
+> Transfer merkezleri arası desi talebini tahmin eden ve minimum maliyetli araç ataması yapan optimizasyon sistemi.
 
 ---
 
-## 📋 İçindekiler
+## 📋 Problem Tanımı
 
-* [Özellikler](#-özellikler)
-* [Ekran Görüntüleri](#-ekran-görüntüleri)
-* [Teknoloji Yığını](#-teknoloji-yığını)
-* [Mimari Yapı](#-mimari-yapı)
-* [Kurulum](#-kurulum)
-* [Kullanım](#-kullanım)
-* [Veri Modeli](#-veri-modeli)
-* [Maliyet Hesaplama Mantığı](#-maliyet-hesaplama-mantığı)
-* [Klasör Yapısı](#-klasör-yapısı)
-* [Yol Haritası](#-yol-haritası)
-* [Katkıda Bulunma](#-katkıda-bulunma)
-* [Lisans](#-lisans)
-* [İletişim](#-iletişim)
+18 transfer merkezi arasında, 89 güzergahta gerçekleşen desi (yük hacmi) taleplerini geçmiş 4 aylık veriden (1 Ocak – 10 Mayıs 2026) öğrenerek **11–17 Mayıs 2026** haftası için tahmin etmek ve bu tahmini, **minimum toplam maliyet** ile kiralık + spot araç kombinasyonu kullanarak karşılamak.
 
 ---
 
-## ✨ Özellikler
+## 💰 TOPLAM MALİYET SONUCU
 
-### Çekirdek Fonksiyonlar
+| Maliyet Kalemi | Tutar (TL) |
+|----------------|-----------|
+| Kiralık Araç Maliyeti | 802,743.79 |
+| Spot Araç Maliyeti | 9,284,442.92 |
+| **GENEL TOPLAM** | **10,087,186.71** |
 
-* **Desi Bazlı Yük Eşleştirme** — Çıkış/varış transfer merkezi çiftleri için gelen toplam desi talebini dinamik olarak okur ve araç kapasitelerine (Tır: 22.400 desi, Kamyon: 12.000, Hafif Kamyon: 7.200, Kamyonet: 5.600) göre optimal araç kombinasyonunu hesaplar
-* **İkili Araç Filosu Desteği** — Kiralık araçlar (günlük + km başına maliyet) ve spot araçlar (sabit günlük + km başına maliyet) arasında gerçek zamanlı maliyet karşılaştırması yapar; her rota için en düşük maliyetli seçeneği seçer
-* **Haversine Rota Hesabı** — 18 transfer merkezinin enlem/boylam koordinatlarından (Koordinatlar_v2.xlsx) iki nokta arasındaki gerçek kuş uçuşu mesafeyi hesaplar; karayolu katsayısı uygulanarak pratik mesafeye dönüştürür
-* **Toplam Maliyet Çıktısı** *(TEKNOFEST zorunlu kriteri)* — Her rota için ayrı ayrı ve filonun tamamı için kümülatif toplam maliyet (TL) raporlanır
-* **Coğrafi Görselleştirme** — Transfer merkezleri harita üzerinde işaretlenir; aktif rotalar ve araç atamaları görsel olarak sunulur
-
-### Teknik Avantajlar
-
-* Araç tipi/kapasite/maliyet parametreleri Excel'den okunur; **kod değiştirmeden** filoya yeni araç tipi eklenebilir
-* Talep ve koordinat dosyaları modüler yapıda; bağımsız olarak güncellenebilir
-* Kiralık araç atamalarının ön tanımlı listesi (Kiralık_Araçlar.xlsx) sisteme import edilebilir; planlı ve anlık atamalar ayrı takip edilir
+> Bu maliyet 11–17 Mayıs 2026 (7 gün), 89 güzergah, 682 araç ataması için hesaplanmıştır.
 
 ---
 
-## 📸 Ekran Görüntüleri
+## 📊 Teslim Çıktıları
 
-> *(Ekran görüntüleri projenin geliştirme sürecinde bu bölüme eklenecektir)*
-
-| Bileşen                       | Açıklama                                                           |
-| ----------------------------- | ------------------------------------------------------------------ |
-| `screenshot_dashboard.png`    | Ana kontrol paneli — toplam maliyet özeti, araç doluluk oranları   |
-| `screenshot_map.png`          | Türkiye haritası üzerinde transfer merkezi & rota görselleştirmesi |
-| `screenshot_optimization.png` | Rota bazında araç atama & maliyet kırılımı tablosu                 |
-| `screenshot_report.png`       | Dışa aktarılan Excel/PDF maliyet raporu örneği                     |
+| Dosya | İçerik |
+|-------|--------|
+| `outputs/Tahminlenen_Talep.xlsx` | 89 güzergah × 7 gün = 623 satır (Tarih, Çıkış TM, Varış TM, Tahmin Edilen Desi) |
+| `outputs/Arac_Planlama.xlsx` | 682 araç ataması (Tarih, Araç Tipi, Çıkış TM, Varış TM, Atanan Desi, Maliyet) + Özet sayfası |
 
 ---
 
-## 🛠️ Teknoloji Yığını
+## 🔬 Tahmin Yöntemi
 
-| Katman         | Teknoloji                | Açıklama                                                         |
-| -------------- | ------------------------ | ---------------------------------------------------------------- |
-| Backend        | Python 3.11+             | Çekirdek optimizasyon motoru                                     |
-| Veri İşleme    | pandas, openpyxl         | Excel okuma/yazma, veri manipülasyonu                            |
-| Optimizasyon   | SciPy / PuLP             | Doğrusal programlama tabanlı araç atama optimizasyonu            |
-| Coğrafi Hesap  | geopy / math (Haversine) | Koordinat bazlı mesafe hesabı                                    |
-| Görselleştirme | Folium / Plotly          | Harita & grafik çıktıları                                        |
-| Arayüz         | Streamlit                | Etkileşimli web arayüzü                                          |
-| Raporlama      | openpyxl, ReportLab      | Excel ve PDF rapor çıktısı                                       |
-| Veri Formatı   | `.xlsx`                  | Araç parametreleri, koordinatlar, talep ve kiralık araç verileri |
+### Model: P(sevkiyat) × E[desi | sevkiyat] — İki Parçalı Model
 
----
+Her (güzergah, hedef tarih) çifti için:
 
-## 🏗️ Mimari Yapı
+1. Hedef tarihin haftanın gününü bul (Pazartesi, Salı, ...)
+2. O güzergahın **sadece hedef tarihten öNCEKİ** verilerinden, aynı haftanın-gününe denk gelen son **12 gözlemi** al (leakage yok)
+3. `p_ship` = Bu gözlemlerde Desi > 0 olan oran
+4. `e_desi` = Desi > 0 olan gözlemlerin ortalaması
+5. **Tahmin = p_ship × e_desi**
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                        VERİ KATMANI                             │
-│                                                                 │
-│  Arac_Kapasite_Maliyet.xlsx   Koordinatlar_v2.xlsx              │
-│  (Araç tipleri, kapasite,     (18 transfer merkezi              │
-│   kiralık & spot maliyetler)   enlem/boylam koordinatları)      │
-│                                                                 │
-│  Desi_talep.xlsx              Kiralik_Araclar.xlsx              │
-│  (Çıkış→Varış bazlı           (Önceden atanmış kiralık          │
-│   desi talep verileri)         araç listesi)                    │
-└────────────────────┬────────────────────────────────────────────┘
-                     │ pandas / openpyxl
-┌────────────────────▼────────────────────────────────────────────┐
-│                     HESAPLAMA KATMANI                           │
-│                                                                 │
-│  ┌─────────────────┐   ┌──────────────────┐                    │
-│  │  Mesafe Motoru  │   │  Kapasite Motoru │                    │
-│  │  (Haversine +   │   │ (Desi→Araç Tipi  │                    │
-│  │ yol katsayısı)  │   │ eşleştirme)      │                    │
-│  └────────┬────────┘   └────────┬─────────┘                    │
-│           │                     │                              │
-│  ┌────────▼─────────────────────▼─────────┐                    │
-│  │      MALİYET OPTİMİZASYON MOTORU       │                    │
-│  └────────────────────┬───────────────────┘                    │
-└───────────────────────┼─────────────────────────────────────────┘
-                        │
-┌───────────────────────▼─────────────────────────────────────────┐
-│                      ÇIKTI KATMANI                              │
-│                                                                 │
-│ 📊 Streamlit Dashboard    🗺️ Folium Harita                     │
-│ 📄 Excel Raporu           📋 PDF Maliyet Özeti                  │
-│                                                                 │
-│ ✅ TOPLAM MALİYET (TEKNOFEST zorunlu kriteri)                   │
-└─────────────────────────────────────────────────────────────────┘
-```
+### Denenen Alternatifler
 
-### Karar Akışı
+| Model | WAPE | Karar |
+|-------|------|-------|
+| Basit haftalık ortalama | ~%44 | Elendi |
+| **İki parçalı model (P×E)** | **~%42** | ✅ **Seçildi** |
+| LightGBM (ML) | %59–107 (gerçek 7-gün-ileri ufkunda) | Elendi — leakage olmadan dengesiz |
 
-1. Veri Yükleme
-2. Mesafe Hesabı
-3. Araç Atama
-4. Maliyet Karşılaştırma
-5. Raporlama
+**Neden ML reddedildi?** LightGBM, eğitim setinde iyi görünse de gerçek 7-gün-ileri tahmin ufkunda stabil çalışmadı (bazı ufuklarda WAPE %107'ye çıktı). Basit modeller ML'yi yenince karmaşıklığı reddetmek doğru mühendislik kararıdır.
+
+### Backtest Sonuçları
+
+- **Test dönemi:** 27 Nisan – 10 Mayıs 2026 (14 gün, leakage yok)
+- **Genel WAPE:** ~%35–42
+- **Not:** 30 Nisan ve 1 Mayıs (İşçi Bayramı) anomali günleridir. Bu günlerde desi normal günlerin %5–10'una düştü. Bu anomaliler backtest WAPE'sini olumsuz etkiler; hedef hafta (11–17 Mayıs) için bilinen resmi tatil yoktur.
 
 ---
 
-## ⚙️ Kurulum
+## ⚙️ Optimizasyon Yöntemi
 
-### Ön Koşullar
+### Araç Atama Süreci (Güzergah × Gün Bazında)
 
-* Python 3.11 veya üstü
-* pip veya conda
+**Adım 1 — Kiralık Araçlar (FAQ #3: Zorunlu)**
+- `Kiralık_Araçlar.xlsx`'teki atamalar her gün sabit olarak çalışır
+- Kiralık araçlar boş dahi olsa maliyetleri eklenir
+- Maliyet = Günlük Kira + Mesafe × Km Maliyeti
 
-### 1. Depoyu Klonlayın
+**Adım 2 — Spot Araçlar (FAQ #1: Min %10 Doluluk)**
+- Kalan desi = max(0, Tahmin – Kiralık Kapasite)
+- Kalan desisi karşılayacak **minimum maliyetli** araç kombinasyonu seçilir
+- **Kısıt:** Her spot aracın kapasitesinin en az **%10'u** dolu olmalı (560 desi = Kamyonet %10'u)
+- Kalan desi < 560 desi ise spot araç **atanamaz** (FAQ #1 gereği)
 
-```bash
-git clone https://github.com/dildasoftware/LoadIQ-LojistikOptimizasyonTeknofest26
-cd loadiq
-```
+**Adım 3 — Mesafe Hesabı (FAQ #6)**
+- Tüm mesafeler **Haversine kuş uçuşu** formülüyle hesaplandı
+- Karayolu çarpanı kullanılmadı (FAQ'da açıkça belirtildi)
 
-### 2. Sanal Ortam Oluşturun
+### Araç Parametreleri
 
-```bash
-python -m venv .venv
-
-source .venv/bin/activate
-# veya
-.venv\Scripts\activate
-```
-
-### 3. Bağımlılıkları Yükleyin
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Veri Dosyalarını Yerleştirin
-
-```text
-data/
-├── Arac_Kapasite_Maliyet.xlsx
-├── Koordinatlar_v2.xlsx
-├── Kiralik_Araclar.xlsx
-└── Desi_talep.xlsx
-```
-
-### 5. Uygulamayı Başlatın
-
-```bash
-streamlit run app.py
-```
+| Araç | Kapasite (desi) | Spot Günlük (TL) | Spot/km (TL) |
+|------|-----------------|------------------|--------------|
+| Tır | 22.400 | 11.700 | 25 |
+| Kamyon | 12.000 | 7.638 | 21 |
+| Hafif Kamyon | 7.200 | 8.750 | 20 |
+| Kamyonet | 5.600 | 4.750 | 18 |
 
 ---
 
-## 🚀 Kullanım
+## 📁 Proje Yapısı
 
-```python
-from loadiq.optimizer import LoadOptimizer
-
-optimizer = LoadOptimizer(
-    vehicles_path="data/Arac_Kapasite_Maliyet.xlsx",
-    coordinates_path="data/Koordinatlar_v2.xlsx",
-    demand_path="data/Desi_talep.xlsx",
-    rentals_path="data/Kiralik_Araclar.xlsx"
-)
-
-results = optimizer.run()
-
-print(f"Toplam Filo Maliyeti: {results.total_cost:,.2f} TL")
 ```
-
----
-
-## 📊 Veri Modeli
-
-### Araç Kapasite & Maliyet Parametreleri
-
-| Araç Tipi    | Kapasite (desi) | Kiralık Günlük (TL) | Kiralık km (TL) | Spot Günlük (TL) | Spot km (TL) |
-| ------------ | --------------- | ------------------- | --------------- | ---------------- | ------------ |
-| Tır          | 22.400          | 7.000               | 13              | 11.700           | 25           |
-| Kamyon       | 12.000          | 5.000               | 10              | 7.638            | 21           |
-| Hafif Kamyon | 7.200           | 5.000               | 10              | 8.750            | 20           |
-| Kamyonet     | 5.600           | 3.750               | 6               | 4.750            | 18           |
-
-### Transfer Merkezleri
-
-`Mersin · Kütahya · Kocaeli · Eskişehir · İstanbul · Bilecik · Balıkesir · Şanlıurfa · Tekirdağ · Sivas · Yalova · Manisa · Isparta · Mardin · Erzincan · Zonguldak · Karaman · Denizli`
-
----
-
-## 💰 Maliyet Hesaplama Mantığı
-
-### Kiralık Araç Maliyeti
-
-```text
-Maliyet_kiralık = Günlük_Kira + (Mesafe_km × km_Maliyet)
-```
-
-### Spot Araç Maliyeti
-
-```text
-Maliyet_spot = Günlük_Sabit + (Mesafe_km × km_Maliyet)
-```
-
-### Rota Toplam Maliyeti
-
-```text
-Maliyet_rota = min(Maliyet_kiralık, Maliyet_spot) × Araç_Sayısı
-```
-
-### Filo Toplam Maliyeti
-
-```text
-TOPLAM_MALİYET = Σ Maliyet_rota
-```
-
----
-
-## 📁 Klasör Yapısı
-
-```text
-loadiq/
+LoadIQ-LojistikOptimizasyonTeknofest26/
 ├── data/
-├── loadiq/
+│   ├── raw/                          # Ham Excel dosyaları (değiştirilmedi)
+│   │   ├── Desi_talep (1).xlsx
+│   │   ├── Kiralık_Araçlar.xlsx
+│   │   ├── Koordinatlar v2 (1).xlsx
+│   │   └── Araç_Kapasite_Maliyet.xlsx
+│   └── processed/
+│       └── panel.csv                 # 89 güzergah × 130 gün tam panel
+├── src/
+│   ├── build_panel.py                # Ham veriyi tam panele çevirir
+│   ├── forecast.py                   # P×E tahmin modeli
+│   ├── backtest.py                   # WAPE doğrulama
+│   ├── optimize.py                   # Araç atama optimizasyonu
+│   └── utils.py                      # Haversine mesafe
 ├── tests/
+│   ├── test_coverage.py              # Kapasite kapsama testi
+│   └── test_optimality.py            # Optimizasyon doğrulama
 ├── outputs/
-├── app.py
+│   ├── Tahminlenen_Talep.xlsx        # 623 satır tahmin (teslim çıktısı)
+│   └── Arac_Planlama.xlsx            # 682 araç ataması (teslim çıktısı)
 ├── requirements.txt
-├── .gitignore
 └── README.md
 ```
 
 ---
 
-## 🗺️ Yol Haritası
+## ⚙️ Kurulum & Çalıştırma
 
-### v1.0 — Temel Sistem
-
-* [x] Veri yükleme
-* [x] Haversine mesafe hesabı
-* [x] Araç eşleştirme
-* [x] Maliyet karşılaştırması
-* [x] Toplam maliyet raporu
-
-### v1.1 — Optimizasyon Katmanı
-
-* [ ] Global araç dağıtımı optimizasyonu
-* [ ] Çoklu rota birleştirme
-* [ ] Çalışma saati ve müsaitlik kısıtları
-
-### v1.2 — Gelişmiş Raporlama
-
-* [ ] İnteraktif harita
-* [ ] PDF raporlama
-* [ ] Sunum dashboardu
-
-### v2.0 — Platform Genişlemesi
-
-* [ ] Çok günlü planlama
-* [ ] API entegrasyonu
-* [ ] Talep tahminleme
-* [ ] Çok kullanıcılı sistem
-
----
-
-## 🤝 Katkıda Bulunma
+### 1. Bağımlılıkları Yükle
 
 ```bash
-git checkout -b feature/ozellik-adi
-git commit -m "feat: yeni özellik"
-git push origin feature/ozellik-adi
+pip install -r requirements.txt
+```
+
+### 2. Pipeline'ı Sırayla Çalıştır
+
+```bash
+# Adım 1: Panel oluştur
+python src/build_panel.py
+
+# Adım 2: Tahmin üret (outputs/Tahminlened_Talep.xlsx)
+python src/forecast.py
+
+# Adım 3: Araç planlaması (outputs/Arac_Planlama.xlsx)
+python src/optimize.py
+
+# Adım 4: Backtest (WAPE doğrulama)
+python src/backtest.py
+
+# Adım 5: Testleri çalıştır
+python tests/test_coverage.py
 ```
 
 ---
 
-## 📄 Lisans
+## 📌 Varsayımlar & Bilinen Riskler
 
-Bu proje **MIT Lisansı** ile lisanslanmıştır.
+| # | Varsayım | Durum |
+|---|----------|-------|
+| 1 | Eksik (güzergah, tarih) kombinasyonları = Desi 0 (sevkiyat yok) | Doğrulandı |
+| 2 | Kiralık araç filosu 7 gün boyunca sabit (her gün aynı atama) | ⚠️ DOĞRULANMAMIŞ |
+| 3 | Mesafe = Haversine kuş uçuşu, karayolu çarpanı yok | FAQ #6 gereği |
+| 4 | Dönüş rotası maliyeti hesaba katılmadı | FAQ #2 gereği |
+| 5 | Konsolidasyon yapılmadı (tek kaynaklı atama) | FAQ #4 gereği |
+| 6 | 30 Nisan ve 1 Mayıs anomali günleri (tatil etkisi) modelden çıkarılmadı | Backtest WAPE'sini etkiler |
+| 7 | 19 Mayıs (Atatürk'ü Anma) hedef hafta dışında — etki yok | Doğrulandı |
+
+---
+
+## 🏗️ Teknoloji Yığını
+
+| Katman | Teknoloji |
+|--------|-----------|
+| Dil | Python 3.11+ |
+| Veri İşleme | pandas, openpyxl |
+| Optimizasyon | Google OR-Tools (CP-SAT), brute-force enumeration |
+| Mesafe Hesabı | Haversine (math) |
+| Test | Python unittest / assert |
 
 ---
 
 ## 📬 İletişim
 
-|           |                     |
-| --------- | ------------------- |
-| Takım Adı | [NASİP]         |
-| Danışman  | [DANIŞMAN_ADI]      |
-| E-posta   | [bilbildilara77@gmail.com]      |
-| GitHub    | [https://github.com/dildasoftware/LoadIQ-LojistikOptimizasyonTeknofest26] |
+| | |
+|--|--|
+| Takım Adı | NASİP |
+| E-posta | bilbildilara77@gmail.com |
+| GitHub | https://github.com/dildasoftware/LoadIQ-LojistikOptimizasyonTeknofest26 |
 
 ---
 
-<div align="center">
-
-**TEKNOFEST 2025 | Lojistik & Ulaştırma**
-
-*"Doğru araç, doğru rota, minimum maliyet."*
-
-
+> **TEKNOFEST 2026 | Lojistik & Ulaştırma**
+>
+> *"Doğru araç, doğru rota, minimum maliyet."*
+>
+> ⚠️ Bu depo teslim süreci boyunca **private** kalacaktır. Resmi duyuru sonrası public yapılacaktır.
