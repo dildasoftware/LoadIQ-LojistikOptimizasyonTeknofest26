@@ -80,7 +80,7 @@ Her (güzergah, hedef tarih) çifti için:
 
 **Adım 3 — Mesafe Hesabı (FAQ #6)**
 - Tüm mesafeler **Haversine kuş uçuşu** formülüyle hesaplandı
-- Karayolu çarpanı kullanılmadı (FAQ'da açıkça belirtildi)
+- Karayolu çarpanı kullanılmadı (FAQ #6 gereği saf kuş uçuşu)
 
 ### Araç Parametreleri
 
@@ -108,7 +108,6 @@ LoadIQ-LojistikOptimizasyonTeknofest26/
 ├── src/
 │   ├── build_panel.py                # Ham veriyi tam panele çevirir
 │   ├── forecast.py                   # P×E tahmin modeli
-│   ├── backtest.py                   # WAPE doğrulama
 │   ├── optimize.py                   # Araç atama optimizasyonu
 │   └── utils.py                      # Haversine mesafe
 ├── tests/
@@ -172,7 +171,7 @@ python tests/test_coverage.py
 |--------|-----------|
 | Dil | Python 3.11+ |
 | Veri İşleme | pandas, openpyxl |
-| Optimizasyon | Google OR-Tools (CP-SAT), brute-force enumeration |
+| Optimizasyon | Greedy optimizasyon (kiralık öncelikli, minimum maliyetli spot seçimi) |
 | Mesafe Hesabı | Haversine (math) |
 | Test | Python unittest / assert |
 
