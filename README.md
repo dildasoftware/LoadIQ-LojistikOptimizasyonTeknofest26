@@ -157,7 +157,7 @@ python tests/test_coverage.py
 |---|----------|-------|
 | 1 | Eksik (güzergah, tarih) kombinasyonları = Desi 0 (sevkiyat yok) | Doğrulandı |
 | 2 | Kiralık araç filosu 7 gün boyunca sabit (her gün aynı atama) | ⚠️ DOĞRULANMAMIŞ |
-| 3 | Mesafe = Haversine kuş uçuşu, karayolu çarpanı yok | FAQ #6 gereği |
+| 3 | Karayolu çarpanı kullanılmadı | FAQ #6 gereği saf Haversine kuş uçuşu uygulandı |
 | 4 | Dönüş rotası maliyeti hesaba katılmadı | FAQ #2 gereği |
 | 5 | Konsolidasyon yapılmadı (tek kaynaklı atama) | FAQ #4 gereği |
 | 6 | 30 Nisan ve 1 Mayıs anomali günleri (tatil etkisi) modelden çıkarılmadı | Backtest WAPE'sini etkiler |
