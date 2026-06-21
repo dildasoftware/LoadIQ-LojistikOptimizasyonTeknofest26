@@ -136,17 +136,15 @@ pip install -r requirements.txt
 # Adım 1: Panel oluştur
 python src/build_panel.py
 
-# Adım 2: Tahmin üret (outputs/Tahminlened_Talep.xlsx)
+# Adım 2: Tahmin üret
 python src/forecast.py
 
-# Adım 3: Araç planlaması (outputs/Arac_Planlama.xlsx)
+# Adım 3: Araç planlaması
 python src/optimize.py
 
-# Adım 4: Backtest (WAPE doğrulama)
-python src/backtest.py
-
-# Adım 5: Testleri çalıştır
+# Adım 4: Testleri çalıştır
 python tests/test_coverage.py
+
 ```
 
 ---
