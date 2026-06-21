@@ -233,7 +233,6 @@ def run_optimization(forecast_path: str, vehicles_path: str, rentals_path: str,
     all_assignments = []  # Juri formatinda: her satir = 1 arac atamasi
     toplam_kiralik_maliyet = 0.0
     toplam_spot_maliyet = 0.0
-    arac_no_counter = 1  # Global arac numarasi sayaci
     
     for idx, row in forecast_df.iterrows():
         tarih = row['Tarih']
@@ -267,12 +266,17 @@ def run_optimization(forecast_path: str, vehicles_path: str, rentals_path: str,
                 # Bu arac ne kadar yuk tasiyor?
                 atanan = min(kapasite_per, max(0.0, desi_kalan))
                 
+                # Arac tipi goruntu adi
+                if arac_turu == 'Tür' or arac_turu == 'Tır':
+                    tip_label = 'Kiralık TIR'
+                else:
+                    tip_label = f'Kiralık {arac_turu}'
+                
                 all_assignments.append({
-                    'Arac No': arac_no_counter,
                     'Tarih': tarih,
-                    'Arac Tipi': f'Kiralik {arac_turu}',
-                    'Cikis TM': cikis,
-                    'Varis TM': varis,
+                    'Araç Tipi': tip_label,
+                    'Çıkış TM': cikis,
+                    'Varış TM': varis,
                     'Atanan Desi': round(atanan, 2),
                     'Maliyet': round(birim_maliyet, 2)
                 })
@@ -280,7 +284,6 @@ def run_optimization(forecast_path: str, vehicles_path: str, rentals_path: str,
                 desi_kalan -= atanan
                 kiralik_kapasite_toplam += kapasite_per
                 toplam_kiralik_maliyet += birim_maliyet
-                arac_no_counter += 1
         
         # --- SPOT ARACLAR ---
         kalan_desi = max(0.0, tahmin_desi - kiralik_kapasite_toplam)
@@ -295,27 +298,32 @@ def run_optimization(forecast_path: str, vehicles_path: str, rentals_path: str,
                 for arac_i in range(spot['Sayi']):
                     atanan = min(spot['Kapasite'], max(0.0, desi_dagitilacak))
                     
+                    # Arac tipi goruntu adi
+                    arac_turu_raw = spot['AracTuru']
+                    if arac_turu_raw == 'Tür' or arac_turu_raw == 'Tır':
+                        tip_label = 'Spot TIR'
+                    else:
+                        tip_label = f'Spot {arac_turu_raw}'
+                    
                     all_assignments.append({
-                        'Arac No': arac_no_counter,
                         'Tarih': tarih,
-                        'Arac Tipi': f'Spot {spot["AracTuru"]}',
-                        'Cikis TM': cikis,
-                        'Varis TM': varis,
+                        'Araç Tipi': tip_label,
+                        'Çıkış TM': cikis,
+                        'Varış TM': varis,
                         'Atanan Desi': round(atanan, 2),
                         'Maliyet': round(spot['BirimMaliyet'], 2)
                     })
                     
                     desi_dagitilacak -= atanan
                     toplam_spot_maliyet += spot['BirimMaliyet']
-                    arac_no_counter += 1
         
         if (idx + 1) % 100 == 0:
             print(f"  Optimizasyon ilerleme: {idx+1}/{len(forecast_df)}")
     
     # --- CIKTI OLUSTUR ---
-    # Sutun sirasi: Arac No | Tarih | Arac Tipi | Cikis TM | Varis TM | Atanan Desi | Maliyet
+    # Sutun sirasi: Tarih | Arac Tipi | Cikis TM | Varis TM | Atanan Desi | Maliyet
     result_df = pd.DataFrame(all_assignments)[
-        ['Arac No', 'Tarih', 'Arac Tipi', 'Cikis TM', 'Varis TM', 'Atanan Desi', 'Maliyet']
+        ['Tarih', 'Araç Tipi', 'Çıkış TM', 'Varış TM', 'Atanan Desi', 'Maliyet']
     ]
     
     # Toplam maliyet
