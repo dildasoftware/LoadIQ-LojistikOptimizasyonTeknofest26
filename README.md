@@ -40,7 +40,7 @@
 Her (güzergah, hedef tarih) çifti için:
 
 1. Hedef tarihin haftanın gününü bul (Pazartesi, Salı, ...)
-2. O güzergahın **sadece hedef tarihten öNCEKİ** verilerinden, aynı haftanın-gününe denk gelen son **12 gözlemi** al (leakage yok)
+2. O güzergahın **sadece hedef tarihten önceki** verilerinden, aynı haftanın gününe denk gelen son **12 gözlemi** al (leakage yok)
 3. `p_ship` = Bu gözlemlerde Desi > 0 olan oran
 4. `e_desi` = Desi > 0 olan gözlemlerin ortalaması
 5. **Tahmin = p_ship × e_desi**
@@ -60,10 +60,8 @@ Her (güzergah, hedef tarih) çifti için:
 - **Test dönemi:** 27 Nisan – 10 Mayıs 2026 (14 gün, leakage yok)
 - **Genel WAPE:** ~%35–42
 - **Not:** 30 Nisan ve 1 Mayıs (İşçi Bayramı) anomali günleridir. Bu günlerde desi normal günlerin %5–10'una düştü. Bu anomaliler backtest WAPE'sini olumsuz etkiler; hedef hafta (11–17 Mayıs) için bilinen resmi tatil yoktur.
-- **Temel çözüm değerlendirmesi:** WAPE %42 bu aşama için 
-kabul edilebilir düzeydedir. Gelişmiş çözümde 
-LightGBM + lag özellikleri ile %15 altına indirilmesi 
-hedeflenmektedir.
+
+> **Temel çözüm değerlendirmesi:** WAPE %42 bu aşama için kabul edilebilir düzeydedir. Gelişmiş çözümde LightGBM + lag özellikleri ile %15 altına indirilmesi hedeflenmektedir.
 
 ---
 
@@ -85,14 +83,10 @@ hedeflenmektedir.
 **Adım 3 — Mesafe Hesabı (FAQ #6)**
 - Tüm mesafeler **Haversine kuş uçuşu** formülüyle hesaplandı
 - Karayolu çarpanı kullanılmadı (FAQ #6 gereği saf kuş uçuşu)
+
 ### Kiralık / Spot Dağılımı Notu
 
-Kiralık_Araçlar.xlsx'te toplam 12 güzergah için sabit 
-kiralık araç tanımlıdır. Bu güzergahlar dışındaki 77 
-güzergah yalnızca spot araçla karşılanmaktadır. 
-Bu nedenle toplam atamada spot oranı %92'ye ulaşmaktadır 
-— bu bir optimizasyon hatası değil, veri setinin 
-doğal bir sonucudur.
+> Kiralık_Araçlar.xlsx'te toplam 12 güzergah için sabit kiralık araç tanımlıdır. Bu güzergahlar dışındaki 77 güzergah yalnızca spot araçla karşılanmaktadır. Bu nedenle toplam atamada spot oranı %92'ye ulaşmaktadır — bu bir optimizasyon hatası değil, veri setinin doğal bir sonucudur.
 
 ### Araç Parametreleri
 
@@ -100,40 +94,59 @@ doğal bir sonucudur.
 |------|-----------------|---------------------|-----------------|------------------|--------------|
 | Tır | 22.400 | 7.000 | 13 | 11.700 | 25 |
 | Kamyon | 12.000 | 5.000 | 10 | 7.638 | 21 |
-> **Not:** Araç parametreleri Araç_Kapasite_Maliyet.xlsx 
-> dosyasından okunmaktadır. Şartname gereği bu değerler 
-> temsilidir; gerçek değerler optimize.py tarafından 
-> doğrudan dosyadan yüklenmektedir.
 | Hafif Kamyon | 7.200 | 5.000 | 10 | 8.750 | 20 |
 | Kamyonet | 5.600 | 3.750 | 6 | 4.750 | 18 |
+
+> **Not:** Araç parametreleri Araç_Kapasite_Maliyet.xlsx dosyasından okunmaktadır. Şartname gereği bu değerler temsilidir; gerçek değerler optimize.py tarafından doğrudan dosyadan yüklenmektedir.
+
 ---
 
 ## 📁 Proje Yapısı
-
-```
 LoadIQ-LojistikOptimizasyonTeknofest26/
+
 ├── data/
+
 │   ├── raw/                          # Ham Excel dosyaları (değiştirilmedi)
+
 │   │   ├── Desi_talep (1).xlsx
+
 │   │   ├── Kiralık_Araçlar.xlsx
+
 │   │   ├── Koordinatlar v2 (1).xlsx
+
 │   │   └── Araç_Kapasite_Maliyet.xlsx
+
 │   └── processed/
+
 │       └── panel.csv                 # 89 güzergah × 130 gün tam panel
+
 ├── src/
-│   ├── forecast.py                   # P×E tahmin modeli
-│   ├── optimize.py                   # Araç atama optimizasyonu
-│   ├── utils.py                      # Haversine mesafe hesabı
-│   └── validate_format.py            # Çıktı format doğrulama
+
+│   ├── forecast.py        # P×E tahmin modeli
+
+│   ├── optimize.py        # Araç atama optimizasyonu
+
+│   ├── utils.py           # Haversine mesafe hesabı
+
+│   └── validate_format.py # Çıktı format doğrulama
+
 ├── tests/
+
 │   ├── test_coverage.py              # Kapasite kapsama testi
+
 │   └── test_optimality.py            # Optimizasyon doğrulama
+
 ├── outputs/
+
 │   ├── Tahminlenen_Talep.xlsx        # 623 satır tahmin (teslim çıktısı)
+
 │   └── Arac_Planlama.xlsx            # 682 araç ataması (teslim çıktısı)
+
 ├── requirements.txt
+
 └── README.md
-```
+
+---
 
 ---
 
@@ -148,7 +161,6 @@ pip install -r requirements.txt
 ### 2. Pipeline'ı Sırayla Çalıştır
 
 ```bash
-
 # Adım 1: Tahmin üret
 python src/forecast.py
 
@@ -157,7 +169,6 @@ python src/optimize.py
 
 # Adım 3: Testleri çalıştır
 python tests/test_coverage.py
-
 ```
 
 ---
