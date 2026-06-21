@@ -84,13 +84,12 @@ Her (güzergah, hedef tarih) çifti için:
 
 ### Araç Parametreleri
 
-| Araç | Kapasite (desi) | Spot Günlük (TL) | Spot/km (TL) |
-|------|-----------------|------------------|--------------|
-| Tır | 22.400 | 11.700 | 25 |
-| Kamyon | 12.000 | 7.638 | 21 |
-| Hafif Kamyon | 7.200 | 8.750 | 20 |
-| Kamyonet | 5.600 | 4.750 | 18 |
-
+| Araç | Kapasite (desi) | Kiralık Günlük (TL) | Kiralık/km (TL) | Spot Günlük (TL) | Spot/km (TL) |
+|------|-----------------|---------------------|-----------------|------------------|--------------|
+| Tır | 22.400 | 7.000 | 13 | 11.700 | 25 |
+| Kamyon | 12.000 | 5.000 | 10 | 7.638 | 21 |
+| Hafif Kamyon | 7.200 | 5.000 | 10 | 8.750 | 20 |
+| Kamyonet | 5.600 | 3.750 | 6 | 4.750 | 18 |
 ---
 
 ## 📁 Proje Yapısı
@@ -106,10 +105,10 @@ LoadIQ-LojistikOptimizasyonTeknofest26/
 │   └── processed/
 │       └── panel.csv                 # 89 güzergah × 130 gün tam panel
 ├── src/
-│   ├── build_panel.py                # Ham veriyi tam panele çevirir
 │   ├── forecast.py                   # P×E tahmin modeli
 │   ├── optimize.py                   # Araç atama optimizasyonu
-│   └── utils.py                      # Haversine mesafe
+│   ├── utils.py                      # Haversine mesafe hesabı
+│   └── validate_format.py            # Çıktı format doğrulama
 ├── tests/
 │   ├── test_coverage.py              # Kapasite kapsama testi
 │   └── test_optimality.py            # Optimizasyon doğrulama
@@ -133,16 +132,14 @@ pip install -r requirements.txt
 ### 2. Pipeline'ı Sırayla Çalıştır
 
 ```bash
-# Adım 1: Panel oluştur
-python src/build_panel.py
 
-# Adım 2: Tahmin üret
+# Adım 1: Tahmin üret
 python src/forecast.py
 
-# Adım 3: Araç planlaması
+# Adım 2: Araç planlaması
 python src/optimize.py
 
-# Adım 4: Testleri çalıştır
+# Adım 3: Testleri çalıştır
 python tests/test_coverage.py
 
 ```
