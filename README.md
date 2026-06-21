@@ -98,7 +98,6 @@ Her (güzergah, hedef tarih) çifti için:
 | Kamyonet | 5.600 | 3.750 | 6 | 4.750 | 18 |
 
 > **Not:** Araç parametreleri Araç_Kapasite_Maliyet.xlsx dosyasından okunmaktadır. Şartname gereği bu değerler temsilidir; gerçek değerler optimize.py tarafından doğrudan dosyadan yüklenmektedir.
-
 ---
 
 ## 📁 Proje Yapısı
