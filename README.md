@@ -160,6 +160,7 @@ python tests/test_coverage.py
 | 5 | Konsolidasyon yapılmadı (tek kaynaklı atama) | FAQ #4 gereği |
 | 6 | 30 Nisan ve 1 Mayıs anomali günleri (tatil etkisi) modelden çıkarılmadı | Backtest WAPE'sini etkiler |
 | 7 | 19 Mayıs (Atatürk'ü Anma) hedef hafta dışında — etki yok | Doğrulandı |
+| 8 | Her araç günde tek sefer yapar — ardışık/tekrar sefer kurgusu uygulanmadı | Yarışma duyurusu gereği |
 
 ---
 
