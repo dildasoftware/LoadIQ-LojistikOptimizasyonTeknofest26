@@ -1,0 +1,182 @@
+"""
+checker.py için negatif testler.
+
+Amaç: checker.py'nin GERÇEKTEN bozuk bir plan verildiğinde bunu doğru
+şekilde reddettiğini kanıtlamak. Sadece "doğru planı onaylıyor mu" yeterli
+değil -- bir doğrulayıcının asıl işi hatayı yakalamaktır. Bu yüzden her
+kural için bilerek bozulmuş bir senaryo kuruyoruz ve checker'ın bunu
+HATA olarak işaretlediğini doğruluyoruz.
+"""
+
+import sys
+import os
+import pandas as pd
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "config"))
+
+from checker import (
+    run_all_checks, check_id_formats, check_talep_traceability,
+    check_tir_capacity, check_ellecleme_capacity, check_sla_penalty,
+    check_cost, DogrulamaRaporu,
+)
+from time_utils import travel_minutes, handling_minutes
+
+
+# ---------------------------------------------------------------------------
+# Ortak, gerçekçi (İstanbul->Yalova gerçek verisiyle) sabit fixture'lar
+# ---------------------------------------------------------------------------
+def _mesafe_df():
+    return pd.DataFrame([{
+        "cikis": "İstanbul", "varis": "Yalova", "mesafe_km": 60,
+        "tir_saat": 0.92, "kamyon_saat": 0.86, "hafif_kamyon_saat": 0.8,
+        "kamyonet_saat": 0.75, "sla_gun": 1,
+    }])
+
+
+def _arac_maliyet_df():
+    return pd.DataFrame([
+        {"arac_adi": "Tır", "kapasite_desi": 22400, "kiralik_saatlik_tl": 291.6667,
+         "kiralik_km_tl": 13, "spot_saatlik_tl": 487.5, "spot_km_tl": 25},
+        {"arac_adi": "Kamyon", "kapasite_desi": 12000, "kiralik_saatlik_tl": 208.3333,
+         "kiralik_km_tl": 10, "spot_saatlik_tl": 318.25, "spot_km_tl": 21},
+        {"arac_adi": "Hafif Kamyon", "kapasite_desi": 7200, "kiralik_saatlik_tl": 208.3333,
+         "kiralik_km_tl": 10, "spot_saatlik_tl": 364.5833, "spot_km_tl": 20},
+        {"arac_adi": "Kamyonet", "kapasite_desi": 5600, "kiralik_saatlik_tl": 156.25,
+         "kiralik_km_tl": 6, "spot_saatlik_tl": 197.9167, "spot_km_tl": 18},
+    ])
+
+
+def _talep_df():
+    return pd.DataFrame([{
+        "Talep ID": "D00001", "Tarih": pd.Timestamp(2026, 6, 29),
+        "Talep Tamamlama Saati": "09:00", "Çıkış Transfer Merkezi": "İstanbul",
+        "Varış Transfer Merkezi": "Yalova", "Tahmin Edilen Desi": 1000,
+    }])
+
+
+def _gecerli_plan_satiri(desi=1000):
+    """1000 desi, Kamyonet, gecikmesiz, doğru maliyetli TEK bir geçerli satır."""
+    cikis_ellecleme = handling_minutes(desi)   # 10 dk
+    yolculuk = travel_minutes(0.75)             # 45 dk (Kamyonet)
+    varis_ellecleme = handling_minutes(desi)    # 10 dk
+    kullanim_saat = (cikis_ellecleme + yolculuk + varis_ellecleme) / 60.0
+    saatlik = 197.9167
+    km_tl = 18
+    dogru_maliyet = saatlik * kullanim_saat + 60 * km_tl
+
+    return {
+        "Araç ID": "V0001", "Araç Tipi": "Spot", "Araç türü": "Kamyonet",
+        "Çıkış Transfer Merkezi": "İstanbul", "Varış Transfer Merkezi": "Yalova",
+        "Çıkış Tarihi": pd.Timestamp(2026, 6, 29), "Çıkış Saati": "09:10",
+        "Varış Tarihi": pd.Timestamp(2026, 6, 29), "Varış Saati": "09:55",
+        "Talep ID": "D00001", "Taşınan Desi": desi,
+        "Yolculuk süresi": yolculuk, "Varış elleçleme süresi": varis_ellecleme,
+        "Çıkış Elleçleme süresi": cikis_ellecleme,
+        "SLA cezası": 0.0, "Toplam maliyet": dogru_maliyet,
+    }
+
+
+# ---------------------------------------------------------------------------
+# TEST A: Geçerli plan -> hiçbir HATA olmamalı
+# ---------------------------------------------------------------------------
+def test_gecerli_plan_pass_veriyor():
+    talep_df = _talep_df()
+    plan_df = pd.DataFrame([_gecerli_plan_satiri()])
+    tir_kap = pd.DataFrame([{"tm": "İstanbul", "tir_kapasitesi": 10},
+                             {"tm": "Yalova", "tir_kapasitesi": 4}])
+    ellecleme = pd.DataFrame([{"tm": "İstanbul", "gunluk_kapasite_desi": 394785.9},
+                               {"tm": "Yalova", "gunluk_kapasite_desi": 513170.7}])
+
+    rapor = run_all_checks(talep_df, plan_df, _mesafe_df(), tir_kap, ellecleme, _arac_maliyet_df())
+    assert not rapor.hata_var_mi, f"Geçerli plan HATA vermemeliydi:\n{rapor.ozet()}"
+
+
+# ---------------------------------------------------------------------------
+# TEST B: Bozuk ID formatı -> yakalanmalı
+# ---------------------------------------------------------------------------
+def test_bozuk_id_formati_yakalaniyor():
+    plan_df = pd.DataFrame([{**_gecerli_plan_satiri(), "Talep ID": "TALEP-1", "Araç ID": "ARAC1"}])
+    rapor = DogrulamaRaporu()
+    check_id_formats(plan_df, rapor)
+    assert rapor.hata_var_mi
+    kategoriler = {s.kategori for s in rapor.sorunlar}
+    assert "ID_FORMAT" in kategoriler
+
+
+# ---------------------------------------------------------------------------
+# TEST C: Taşınan desi toplamı tahminle uyuşmuyor -> yakalanmalı
+# ---------------------------------------------------------------------------
+def test_desi_uyusmazligi_yakalaniyor():
+    talep_df = _talep_df()  # 1000 desi tahmin edilmiş
+    satir = _gecerli_plan_satiri(desi=400)  # ama sadece 400 desi taşınmış!
+    plan_df = pd.DataFrame([satir])
+    rapor = DogrulamaRaporu()
+    check_talep_traceability(talep_df, plan_df, rapor)
+    assert rapor.hata_var_mi
+    assert any(s.kategori == "IZLENEBILIRLIK" for s in rapor.sorunlar)
+
+
+# ---------------------------------------------------------------------------
+# TEST D: Tır kapasitesi aşımı -> yakalanmalı
+# ---------------------------------------------------------------------------
+def test_tir_kapasitesi_asimi_yakalaniyor():
+    satir1 = {**_gecerli_plan_satiri(), "Araç türü": "Tır", "Araç ID": "V0001"}
+    satir2 = {**_gecerli_plan_satiri(), "Araç türü": "Tır", "Araç ID": "V0002"}
+    plan_df = pd.DataFrame([satir1, satir2])
+    # Kapasite 1 ama 2 farklı tır İstanbul'dan çıkıyor -> ihlal
+    tir_kap = pd.DataFrame([{"tm": "İstanbul", "tir_kapasitesi": 1},
+                             {"tm": "Yalova", "tir_kapasitesi": 1}])
+    rapor = DogrulamaRaporu()
+    check_tir_capacity(plan_df, tir_kap, rapor)
+    assert rapor.hata_var_mi
+    assert any(s.kategori == "TIR_KAPASITESI" for s in rapor.sorunlar)
+
+
+# ---------------------------------------------------------------------------
+# TEST E: Elleçleme kapasitesi aşımı -> yakalanmalı
+# ---------------------------------------------------------------------------
+def test_ellecleme_kapasitesi_asimi_yakalaniyor():
+    plan_df = pd.DataFrame([_gecerli_plan_satiri(desi=5000)])
+    # Yapay olarak çok küçük kapasite veriyoruz (100 desi) - kesin aşılır
+    ellecleme = pd.DataFrame([{"tm": "İstanbul", "gunluk_kapasite_desi": 100},
+                               {"tm": "Yalova", "gunluk_kapasite_desi": 100}])
+    rapor = DogrulamaRaporu()
+    check_ellecleme_capacity(plan_df, ellecleme, rapor)
+    assert rapor.hata_var_mi
+    assert any(s.kategori == "ELLECLEME_KAPASITESI" for s in rapor.sorunlar)
+
+
+# ---------------------------------------------------------------------------
+# TEST F: Yanlış raporlanan SLA cezası -> yakalanmalı
+# ---------------------------------------------------------------------------
+def test_yanlis_sla_cezasi_yakalaniyor():
+    talep_df = _talep_df()  # SLA: 24 saat, talep tamamlanma 29.06 09:00 -> limit 30.06 09:00
+    satir = _gecerli_plan_satiri()
+    # Aracı bilerek 2 gün geciktiriyoruz (varış 02.07'de tamamlanıyor)
+    satir["Varış Tarihi"] = pd.Timestamp(2026, 7, 2)
+    satir["Varış Saati"] = "09:55"
+    satir["SLA cezası"] = 0.0  # ama yanlışlıkla ceza yok denmiş!
+    plan_df = pd.DataFrame([satir])
+    rapor = DogrulamaRaporu()
+    check_sla_penalty(plan_df, talep_df, _mesafe_df(), rapor)
+    assert rapor.hata_var_mi
+    assert any(s.kategori == "SLA_CEZASI" for s in rapor.sorunlar)
+
+
+# ---------------------------------------------------------------------------
+# TEST G: Yanlış raporlanan maliyet -> yakalanmalı
+# ---------------------------------------------------------------------------
+def test_yanlis_maliyet_yakalaniyor():
+    satir = _gecerli_plan_satiri()
+    satir["Toplam maliyet"] = 1.0  # bariz yanlış
+    plan_df = pd.DataFrame([satir])
+    rapor = DogrulamaRaporu()
+    check_cost(plan_df, _arac_maliyet_df(), _mesafe_df(), rapor)
+    assert rapor.hata_var_mi
+    assert any(s.kategori == "MALIYET" for s in rapor.sorunlar)
+
+
+if __name__ == "__main__":
+    import pytest
+    raise SystemExit(pytest.main([__file__, "-v"]))
