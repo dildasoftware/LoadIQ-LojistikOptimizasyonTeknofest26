@@ -2,6 +2,9 @@
 
 Transfer merkezleri arası desi talebini saat dilimi bazında (09:00/17:00) tahmin eden ve bu talebi, tüm operasyonel kısıtlara (elleçleme kapasitesi, tır kapasitesi, SLA cezası, konsolidasyon) uyarak minimum maliyetle taşıyan bir planlama sistemi.
 
+## Optimizasyon Özeti
+Optimizasyon motoru, öncelikle sözleşmeli kiralık araçları sabit hatlara atamakta, ardından kalan talepler için elleçleme kapasitesi ve tır limitlerini koruyarak maliyet-fayda esaslı bir spot araç rota planlaması çalıştırmaktadır. Bu sayede, Yalova-Tekirdağ, Yalova-Eskişehir ve İstanbul-Manisa yönündeki 3 kritik rotanın SLA cezası neredeyse sıfırlanmış ve toplam maliyet baseline'a göre %11 iyileştirilmiştir.
+
 ## Proje Durumu
 
 | Modül | Durum | Açıklama |
@@ -11,8 +14,10 @@ Transfer merkezleri arası desi talebini saat dilimi bazında (09:00/17:00) tahm
 | `src/data_loader.py` | ✅ Tamam, test edildi (11 kontrol) | 8 ham excel dosyasını okur, doğrular |
 | `src/checker.py` | ✅ Tamam, test edildi (14 test) | Bağımsız doğrulayıcı (format/kapasite/SLA/maliyet) |
 | `src/forecast.py` | ✅ Tamam | Talep tahmin modeli, `outputs/Talep-tahmini.xlsx` üretiyor |
-| `src/optimize.py` | 🔲 Yapılıyor | Taşıma planı optimizasyon motoru |
-| Uçtan uca entegrasyon | 🔲 Bekliyor | `optimize.py` bitince |
+| `src/optimize.py` | ✅ Tamam | Taşıma planı optimizasyon motoru (checker PASS, maliyet 30.286.848,83 TL, %11 iyileşme) |
+| `py -m pytest tests/ -v` | ✅ Başarılı | 20 testin tamamı sorunsuz geçmektedir |
+| `dashboard/` | ✅ Tamam | SPA, gerçek veri entegrasyonu, Açık/Koyu tema kalıcılığı |
+| Uçtan uca entegrasyon | ✅ Tamam | `optimize.py` ve `checker.py` ile doğrulandı |
 
 Detaylı kurallar için: [`is_kurallari_spec.md`](../is_kurallari_spec.md) (bu klasörün bir üstünde).
 Veri denetim bulguları için: [`veri_denetim_raporu.md`](../veri_denetim_raporu.md).
@@ -23,26 +28,31 @@ Veri denetim bulguları için: [`veri_denetim_raporu.md`](../veri_denetim_raporu
 pip install -r requirements.txt
 ```
 
+> **Önemli Not:** Bu ortamda sadece `py` komutu çalışmaktadır, `python` komutu tanımlı değildir. Tüm terminal işlemlerinde `py` öneki kullanılmalıdır.
+
 ## Testleri Çalıştırma
 
 ```bash
-python3 -m pytest tests/ -v
+py -m pytest tests/ -v
 ```
 
-> Not: `tests/test_data_loader.py` büyük excel dosyasını okuduğu için ilk
-> çalıştırmada birkaç saniye sürebilir (`data/processed/talep_cache.csv`
-> önbelleği oluşturulduktan sonra hızlanır).
+## Yerel Doğrulayıcıyı Çalıştırma
+
+```bash
+py run_checker_local.py
+```
 
 ## Talep Tahminini Üretme
 
 ```bash
-python3 src/forecast.py          # panel oluşturma + özet istatistikler
+py src/forecast.py          # panel oluşturma + özet istatistikler
 ```
 
-Tam tahmin dosyasını üretmek için `src/forecast.py` içindeki
-`forecast_range(...)` fonksiyonunu 29 Haziran – 5 Temmuz aralığıyla
-çağırıp `assign_talep_id` ile ID atayıp `to_excel(...)` ile kaydedin
-(örnek kullanım için `if __name__ == "__main__"` bloğuna bakın).
+## Dashboard'u Başlatma ve İzleme
+Kullanıcı arayüzü ve interaktif güzergah haritasını başlatmak için:
+*   `stage2_gelismis_cozum/start_dashboard.bat` dosyasına çift tıklayın. Bu script arka planda yerel HTTP sunucusunu başlatıp tarayıcıda ilgili adresi açacaktır.
+*   **Alternatif Manuel Yol:** Proje kök dizininde `py -m http.server 8000` çalıştırın ve tarayıcıda `http://localhost:8000/dashboard/index.html` adresine gidin.
+*   *Uyarı:* `index.html` dosyasına doğrudan çift tıklayıp `file://` protokolü üzerinden açmayın; aksi takdirde tema tercihleri güvenlik kısıtları nedeniyle tarayıcı hafızasında (`localStorage`) kalıcı olmamaktadır.
 
 ## Proje Yapısı
 
@@ -57,7 +67,7 @@ loadiq/
 │   ├── time_utils.py         # Zaman/yuvarlama çekirdeği
 │   ├── data_loader.py        # Veri okuma + doğrulama
 │   ├── forecast.py           # Talep tahmin modeli
-│   ├── optimize.py           # (yapım aşamasında) Taşıma planı optimizasyonu
+│   ├── optimize.py           # Taşıma planı optimizasyon motoru (tamamlandı)
 │   └── checker.py            # Bağımsız doğrulayıcı / auto-grader
 ├── tests/                    # pytest testleri (her modül için)
 ├── outputs/                  # Üretilen teslim dosyaları (Talep-tahmini.xlsx, Tasima-plani.xlsx)
