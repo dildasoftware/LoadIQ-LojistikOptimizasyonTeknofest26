@@ -51,7 +51,7 @@ py src/forecast.py          # panel oluşturma + özet istatistikler
 ## Dashboard'u Başlatma ve İzleme
 Kullanıcı arayüzü ve interaktif güzergah haritasını başlatmak için:
 *   `stage2_gelismis_cozum/start_dashboard.bat` dosyasına çift tıklayın. Bu script arka planda yerel HTTP sunucusunu başlatıp tarayıcıda ilgili adresi açacaktır.
-*   **Alternatif Manuel Yol:** Proje kök dizininde `py -m http.server 8000` çalıştırın ve tarayıcıda `http://localhost:8000/dashboard/index.html` adresine gidin.
+*   **Alternatif Manuel Yol:** Proje kök dizininde `py -m http.server 8000` çalıştırın ve tarayıcıda `http://localhost:8000/stage2_gelismis_cozum/dashboard/index.html` adresine gidin.
 *   *Uyarı:* `index.html` dosyasına doğrudan çift tıklayıp `file://` protokolü üzerinden açmayın; aksi takdirde tema tercihleri güvenlik kısıtları nedeniyle tarayıcı hafızasında (`localStorage`) kalıcı olmamaktadır.
 
 ## Proje Yapısı

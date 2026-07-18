@@ -1,6 +1,6 @@
 # LoadIQ Lojistik Optimizasyon Dashboard'u SPA Raporu
 
-Bu raporda, `dashboard/index.html` üzerinde yapılan tek sayfa uygulaması (SPA) dönüşümü, veri entegrasyonu, tema ve animasyon ayarları ile harita etkileşimi detayları özetlenmektedir.
+Bu raporda, `stage2_gelismis_cozum/dashboard/index.html` üzerinde yapılan tek sayfa uygulaması (SPA) dönüşümü, veri entegrasyonu, tema ve animasyon ayarları ile harita etkileşimi detayları özetlenmektedir.
 
 ---
 

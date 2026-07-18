@@ -1284,7 +1284,7 @@
             <h2>Güzergah Ağı — Türkiye</h2>
             <span id="map-status" class="status-indicator warning">
               <span class="status-dot"></span>
-              <span class="status-label">SLA İhlali Tespit Edildi</span>
+              <span class="badge-text" style="color: inherit;">SLA İhlali Tespit Edildi</span>
             </span>
           </div>
           <div class="toggle-group">
@@ -1379,7 +1379,7 @@
               </tr>
               <tr>
                 <td class="mono">TRK-104</td>
-                <td>Mardin → Mersin</td>
+                <td>Merdin → Mersin</td>
                 <td class="mono">91,0%</td>
                 <td><span class="status-cell yellow"><span class="dot"></span>Yolda</span></td>
               </tr>
@@ -1780,13 +1780,13 @@
         <h2>Çıktı Excel Raporları</h2>
       </div>
       <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px;">
-        <a href="../stage2_gelismis_cozum/outputs/Tasima_Plani.xlsx" download class="toggle-btn active" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px;">
+        <a href="../outputs/Tasima_Plani.xlsx" download class="toggle-btn active" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px;">
           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="16" height="16">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
           Taşıma Planı (Tasima_Plani.xlsx)
         </a>
-        <a href="../stage2_gelismis_cozum/outputs/solution_analysis.xlsx" download class="toggle-btn" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px;">
+        <a href="../outputs/solution_analysis.xlsx" download class="toggle-btn" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px;">
           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="16" height="16">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
@@ -2078,7 +2078,7 @@
     function setMapState(state) {
       const map = document.getElementById('turkey-map');
       const status = document.getElementById('map-status');
-      const statusLabel = status.querySelector('.status-label');
+      const statusLabel = status.querySelector('.badge-text');
       const btnPre = document.getElementById('btn-pre');
       const btnPost = document.getElementById('btn-post');
       const legendColor = document.getElementById('legend-critical-color');
@@ -2108,6 +2108,7 @@
       return num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    // Standard Int
     function formatTurkishInt(num) {
       return Math.floor(num).toLocaleString('tr-TR');
     }
@@ -2122,6 +2123,7 @@
 
       targets.forEach(t => {
         const el = document.getElementById(t.id);
+        if (!el) return;
         let startTimestamp = null;
         
         const step = (timestamp) => {
@@ -2148,6 +2150,7 @@
     // --- Donut Chart Panel 1 ---
     function drawDonutChart() {
       const svg = document.getElementById('donut-chart');
+      if (!svg) return;
       const radius = 35;
       const circumference = 2 * Math.PI * radius; // ~219.91
       
@@ -2218,6 +2221,7 @@
     // --- Cost Breakdown Bar Chart Panel 2 ---
     function drawCostBarChart() {
       const container = document.getElementById('cost-bars-group');
+      if (!container) return;
       container.innerHTML = ''; // Clear
 
       const data = [
@@ -2322,6 +2326,7 @@
       const areaPost = document.getElementById('path-trend-post-area');
       const markerGroup = document.getElementById('trend-markers');
 
+      if (!pathPre || !pathPost) return;
       markerGroup.innerHTML = ''; // Clear
 
       // Build Path Data
@@ -2420,48 +2425,60 @@
     // --- Intersection Observer for Lazy Rendering Animations ---
     function initAnimationsObserver() {
       // 1. Donut Chart
-      const donutObserver = new IntersectionObserver((entries, observer) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            drawDonutChart();
-            observer.unobserve(entry.target);
-          }
-        });
-      }, { threshold: 0.1 });
-      donutObserver.observe(document.getElementById('donut-chart'));
+      const donutEl = document.getElementById('donut-chart');
+      if (donutEl) {
+        const donutObserver = new IntersectionObserver((entries, observer) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              drawDonutChart();
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.1 });
+        donutObserver.observe(donutEl);
+      }
 
       // 2. Bar Chart
-      const barObserver = new IntersectionObserver((entries, observer) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            drawCostBarChart();
-            observer.unobserve(entry.target);
-          }
-        });
-      }, { threshold: 0.1 });
-      barObserver.observe(document.getElementById('cost-bar-chart'));
+      const costEl = document.getElementById('cost-bar-chart');
+      if (costEl) {
+        const barObserver = new IntersectionObserver((entries, observer) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              drawCostBarChart();
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.1 });
+        barObserver.observe(costEl);
+      }
 
       // 3. Line Chart
-      const lineObserver = new IntersectionObserver((entries, observer) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            drawLineChart();
-            observer.unobserve(entry.target);
-          }
-        });
-      }, { threshold: 0.1 });
-      lineObserver.observe(document.getElementById('trend-line-chart'));
+      const trendEl = document.getElementById('trend-line-chart');
+      if (trendEl) {
+        const lineObserver = new IntersectionObserver((entries, observer) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              drawLineChart();
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.1 });
+        lineObserver.observe(trendEl);
+      }
 
       // 4. Progress Bars
-      const progObserver = new IntersectionObserver((entries, observer) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            triggerProgressBars();
-            observer.unobserve(entry.target);
-          }
-        });
-      }, { threshold: 0.1 });
-      progObserver.observe(document.querySelector('.fleet-bars'));
+      const fleetEl = document.querySelector('.fleet-bars');
+      if (fleetEl) {
+        const progObserver = new IntersectionObserver((entries, observer) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              triggerProgressBars();
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.1 });
+        progObserver.observe(fleetEl);
+      }
     }
 
     // --- SPA Navigation & Dynamic Data Population ---
@@ -2526,96 +2543,121 @@
       if (typeof DASHBOARD_DATA === 'undefined') return;
 
       // 1. Forecast view
-      document.getElementById('forecast-total-rows').textContent = formatTurkishFloat(DASHBOARD_DATA.total_talep_rows).split(',')[0];
-      document.getElementById('forecast-date-range').textContent = `${formatDateShort(DASHBOARD_DATA.start_date)} - ${formatDateShort(DASHBOARD_DATA.end_date)}`;
-      document.getElementById('forecast-routes-count').textContent = DASHBOARD_DATA.rotalar_count;
+      const forecastTotalRows = document.getElementById('forecast-total-rows');
+      if (forecastTotalRows) forecastTotalRows.textContent = formatTurkishFloat(DASHBOARD_DATA.total_talep_rows).split(',')[0];
+      
+      const forecastDateRange = document.getElementById('forecast-date-range');
+      if (forecastDateRange) forecastDateRange.textContent = `${formatDateShort(DASHBOARD_DATA.start_date)} - ${formatDateShort(DASHBOARD_DATA.end_date)}`;
+      
+      const forecastRoutesCount = document.getElementById('forecast-routes-count');
+      if (forecastRoutesCount) forecastRoutesCount.textContent = DASHBOARD_DATA.rotalar_count;
 
       const fTableBody = document.getElementById('forecast-table-body');
-      fTableBody.innerHTML = '';
-      DASHBOARD_DATA.sample_talep_rows.forEach(row => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td><strong>${row.talep_id}</strong></td>
-          <td>${row.tarih}</td>
-          <td>${row.saat}</td>
-          <td>${row.cikis}</td>
-          <td>${row.varis}</td>
-          <td style="text-align: right; font-family: var(--font-mono);">${formatTurkishFloat(row.desi)} desi</td>
-        `;
-        fTableBody.appendChild(tr);
-      });
+      if (fTableBody) {
+        fTableBody.innerHTML = '';
+        DASHBOARD_DATA.sample_talep_rows.forEach(row => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${row.talep_id}</strong></td>
+            <td>${row.tarih}</td>
+            <td>${row.saat}</td>
+            <td>${row.cikis}</td>
+            <td>${row.varis}</td>
+            <td style="text-align: right; font-family: var(--font-mono);">${formatTurkishFloat(row.desi)} desi</td>
+          `;
+          fTableBody.appendChild(tr);
+        });
+      }
 
       // 2. Engine view
-      document.getElementById('engine-cost-vehicle').textContent = `₺${formatTurkishFloat(DASHBOARD_DATA.cost_comparison.after.arac_maliyet)}`;
-      document.getElementById('engine-cost-sla').textContent = `₺${formatTurkishFloat(DASHBOARD_DATA.cost_comparison.after.sla_maliyet)}`;
-      document.getElementById('engine-cost-total').textContent = `₺${formatTurkishFloat(DASHBOARD_DATA.cost_comparison.after.toplam)}`;
+      const engineCostVehicle = document.getElementById('engine-cost-vehicle');
+      if (engineCostVehicle) engineCostVehicle.textContent = `₺${formatTurkishFloat(DASHBOARD_DATA.cost_comparison.after.arac_maliyet)}`;
+      
+      const engineCostSla = document.getElementById('engine-cost-sla');
+      if (engineCostSla) engineCostSla.textContent = `₺${formatTurkishFloat(DASHBOARD_DATA.cost_comparison.after.sla_maliyet)}`;
+      
+      const engineCostTotal = document.getElementById('engine-cost-total');
+      if (engineCostTotal) engineCostTotal.textContent = `₺${formatTurkishFloat(DASHBOARD_DATA.cost_comparison.after.toplam)}`;
 
       const vDiff = DASHBOARD_DATA.cost_comparison.after.arac_maliyet - DASHBOARD_DATA.cost_comparison.before.arac_maliyet;
       const sDiff = DASHBOARD_DATA.cost_comparison.after.sla_maliyet - DASHBOARD_DATA.cost_comparison.before.sla_maliyet;
       const tDiff = DASHBOARD_DATA.cost_comparison.after.toplam - DASHBOARD_DATA.cost_comparison.before.toplam;
 
-      document.getElementById('engine-cost-vehicle-diff').innerHTML = `${vDiff < 0 ? '-' : '+'}₺${formatTurkishFloat(Math.abs(vDiff))}`;
-      document.getElementById('engine-cost-sla-diff').innerHTML = `${sDiff < 0 ? '-' : '+'}₺${formatTurkishFloat(Math.abs(sDiff))}`;
-      document.getElementById('engine-cost-total-diff').innerHTML = `${tDiff < 0 ? '-' : '+'}₺${formatTurkishFloat(Math.abs(tDiff))}`;
+      const engineCostVehicleDiff = document.getElementById('engine-cost-vehicle-diff');
+      if (engineCostVehicleDiff) engineCostVehicleDiff.innerHTML = `${vDiff < 0 ? '-' : '+'}₺${formatTurkishFloat(Math.abs(vDiff))}`;
+      
+      const engineCostSlaDiff = document.getElementById('engine-cost-sla-diff');
+      if (engineCostSlaDiff) engineCostSlaDiff.innerHTML = `${sDiff < 0 ? '-' : '+'}₺${formatTurkishFloat(Math.abs(sDiff))}`;
+      
+      const engineCostTotalDiff = document.getElementById('engine-cost-total-diff');
+      if (engineCostTotalDiff) engineCostTotalDiff.innerHTML = `${tDiff < 0 ? '-' : '+'}₺${formatTurkishFloat(Math.abs(tDiff))}`;
 
-      document.getElementById('engine-checker-log').textContent = DASHBOARD_DATA.checker_log;
+      const engineCheckerLog = document.getElementById('engine-checker-log');
+      if (engineCheckerLog) engineCheckerLog.textContent = DASHBOARD_DATA.checker_log;
 
       // 3. Fleet view
       const kTable = document.getElementById('fleet-kiralik-table');
-      kTable.innerHTML = '';
-      DASHBOARD_DATA.kiralik_list.forEach(row => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td><strong>${row.cikis}</strong></td>
-          <td><strong>${row.varis}</strong></td>
-          <td><span class="badge ${row.arac_turu === 'Tır' ? 'badge-blue' : 'badge-amber'}">${row.arac_turu}</span></td>
-          <td style="text-align: right; font-family: var(--font-mono);">${row.arac_sayisi} adet</td>
-        `;
-        kTable.appendChild(tr);
-      });
+      if (kTable) {
+        kTable.innerHTML = '';
+        DASHBOARD_DATA.kiralik_list.forEach(row => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${row.cikis}</strong></td>
+            <td><strong>${row.varis}</strong></td>
+            <td><span class="badge ${row.arac_turu === 'Tır' ? 'badge-blue' : 'badge-amber'}">${row.arac_turu}</span></td>
+            <td style="text-align: right; font-family: var(--font-mono);">${row.arac_sayisi} adet</td>
+          `;
+          kTable.appendChild(tr);
+        });
+      }
 
       const sTable = document.getElementById('fleet-spot-table');
-      sTable.innerHTML = '';
-      DASHBOARD_DATA.spot_analysis.forEach(row => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td><strong>${row.arac_turu}</strong></td>
-          <td style="text-align: right; font-family: var(--font-mono);">${formatTurkishFloat(row.sefer_sayisi).split(',')[0]} sefer</td>
-          <td style="text-align: right;">
-            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
-              <span style="font-family: var(--font-mono); font-weight: 600;">%${formatTurkishFloat(row.avg_doluluk)}</span>
-              <div style="width: 80px; height: 6px; background-color: var(--border); border-radius: 3px; overflow: hidden;">
-                <div style="width: ${row.avg_doluluk}%; height: 100%; background-color: var(--cyan); border-radius: 3px;"></div>
+      if (sTable) {
+        sTable.innerHTML = '';
+        DASHBOARD_DATA.spot_analysis.forEach(row => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${row.arac_turu}</strong></td>
+            <td style="text-align: right; font-family: var(--font-mono);">${formatTurkishFloat(row.sefer_sayisi).split(',')[0]} sefer</td>
+            <td style="text-align: right;">
+              <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
+                <span style="font-family: var(--font-mono); font-weight: 600;">%${formatTurkishFloat(row.avg_doluluk)}</span>
+                <div style="width: 80px; height: 6px; background-color: var(--border); border-radius: 3px; overflow: hidden;">
+                  <div style="width: ${row.avg_doluluk}%; height: 100%; background-color: var(--cyan); border-radius: 3px;"></div>
+                </div>
               </div>
-            </div>
-          </td>
-        `;
-        sTable.appendChild(tr);
-      });
+            </td>
+          `;
+          sTable.appendChild(tr);
+        });
+      }
 
       // 4. TMs view
       const tTable = document.getElementById('tms-table-body');
-      tTable.innerHTML = '';
-      DASHBOARD_DATA.tm_list.forEach(row => {
-        const tr = document.createElement('tr');
-        tr.style.cursor = 'pointer';
-        tr.onclick = () => highlightTM(row.name);
-        
-        const badgeClass = row.tir_kapasitesi > 0 ? 'badge-green' : 'badge-red';
-        const badgeText = row.tir_kapasitesi > 0 ? `${row.tir_kapasitesi} TIR` : 'TIR Giremez';
-        
-        tr.innerHTML = `
-          <td><strong>${row.name}</strong></td>
-          <td style="text-align: right; font-family: var(--font-mono);">${formatTurkishFloat(row.ellecleme_kapasitesi).split(',')[0]} desi</td>
-          <td style="text-align: right; font-family: var(--font-mono);">${row.tir_kapasitesi}</td>
-          <td><span class="badge ${badgeClass}">${badgeText}</span></td>
-          <td><span style="color: var(--cyan); font-size: 12px; font-weight: 600;">Haritada Vurgula →</span></td>
-        `;
-        tTable.appendChild(tr);
-      });
+      if (tTable) {
+        tTable.innerHTML = '';
+        DASHBOARD_DATA.tm_list.forEach(row => {
+          const tr = document.createElement('tr');
+          tr.style.cursor = 'pointer';
+          tr.onclick = () => highlightTM(row.name);
+          
+          const badgeClass = row.tir_kapasitesi > 0 ? 'badge-green' : 'badge-red';
+          const badgeText = row.tir_kapasitesi > 0 ? `${row.tir_kapasitesi} TIR` : 'TIR Giremez';
+          
+          tr.innerHTML = `
+            <td><strong>${row.name}</strong></td>
+            <td style="text-align: right; font-family: var(--font-mono);">${formatTurkishFloat(row.ellecleme_kapasitesi).split(',')[0]} desi</td>
+            <td style="text-align: right; font-family: var(--font-mono);">${row.tir_kapasitesi}</td>
+            <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+            <td><span style="color: var(--cyan); font-size: 12px; font-weight: 600;">Haritada Vurgula →</span></td>
+          `;
+          tTable.appendChild(tr);
+        });
+      }
 
       // 5. Reports view
-      document.getElementById('reports-analysis-log').textContent = DASHBOARD_DATA.analysis_log;
+      const reportsAnalysisLog = document.getElementById('reports-analysis-log');
+      if (reportsAnalysisLog) reportsAnalysisLog.textContent = DASHBOARD_DATA.analysis_log;
     }
 
     function formatDateShort(dateStr) {
@@ -2680,13 +2722,16 @@
     function highlightTM(tmName) {
       navigateTo(null, 'view-pano');
       
-      const mapNodes = document.querySelectorAll('.tm-node');
+      const mapNodes = document.querySelectorAll('.map-node');
       mapNodes.forEach(node => {
-        const title = node.querySelector('title')?.textContent || node.getAttribute('data-name');
-        if (title === tmName) {
+        // Find by index matching the nodes array or coordinate matching
+        // In this simplified map, let's match the index from nodes array
+        const idx = nodes.findIndex(n => n.name === tmName);
+        if (idx !== -1 && mapNodes[idx] === node) {
           node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          node.style.transformOrigin = `${nodes[idx].x}px ${nodes[idx].y}px`;
           node.style.transform = 'scale(2.5)';
-          node.style.transition = 'transform 0.3s ease';
+          node.style.transition = 'transform 0.3s ease, fill 0.3s ease';
           node.setAttribute('r', '8');
           
           let count = 0;
@@ -2695,8 +2740,8 @@
             count++;
             if (count > 6) {
               clearInterval(interval);
-              node.setAttribute('fill', tmName === 'İstanbul' || tmName === 'Yalova' || tmName === 'Eskişehir' ? 'var(--red)' : 'var(--cyan)');
-              node.setAttribute('r', tmName === 'İstanbul' || tmName === 'Yalova' || tmName === 'Eskişehir' ? '5.5' : '4');
+              node.setAttribute('fill', nodes[idx].main ? 'var(--text)' : 'var(--cyan)');
+              node.setAttribute('r', nodes[idx].main ? '5.5' : '4');
               node.style.transform = '';
             }
           }, 300);
