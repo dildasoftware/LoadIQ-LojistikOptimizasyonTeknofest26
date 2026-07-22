@@ -177,6 +177,162 @@ def test_yanlis_maliyet_yakalaniyor():
     assert any(s.kategori == "MALIYET" for s in rapor.sorunlar)
 
 
+# ---------------------------------------------------------------------------
+# TEST H: Talep üç parçaya bölünüp toplam doğruysa kabul edilmeli
+# ---------------------------------------------------------------------------
+def test_talep_uc_parcaya_bolunup_tam_tasiniyor():
+    talep_df = _talep_df()  # D00001 için beklenen toplam: 1000 desi
+
+    satir_1 = {
+        **_gecerli_plan_satiri(desi=300),
+        "Talep ID": "D00001-1",
+        "Araç ID": "V0001",
+    }
+
+    satir_2 = {
+        **_gecerli_plan_satiri(desi=350),
+        "Talep ID": "D00001-2",
+        "Araç ID": "V0002",
+    }
+
+    satir_3 = {
+        **_gecerli_plan_satiri(desi=350),
+        "Talep ID": "D00001-3",
+        "Araç ID": "V0003",
+    }
+
+    plan_df = pd.DataFrame([
+        satir_1,
+        satir_2,
+        satir_3,
+    ])
+
+    rapor = DogrulamaRaporu()
+
+    check_talep_traceability(
+        talep_df,
+        plan_df,
+        rapor,
+    )
+
+    assert not rapor.hata_var_mi, rapor.ozet()
+
+# ---------------------------------------------------------------------------
+# TEST I: SLA tam sınırında tamamlanıyorsa ceza olmamalı
+# ---------------------------------------------------------------------------
+def test_sla_tam_sinirinda_ceza_yok():
+    talep_df = _talep_df()
+
+    satir = _gecerli_plan_satiri()
+
+    # Talep 29.06.2026 09:00'da tamamlanıyor.
+    # SLA 1 gün olduğu için son teslim bitişi 30.06.2026 09:00.
+    # Varış elleçlemesi 10 dakika sürdüğünden varış başlangıcı 08:50 olmalı.
+    satir["Varış Tarihi"] = pd.Timestamp(2026, 6, 30)
+    satir["Varış Saati"] = "08:50"
+    satir["Varış elleçleme süresi"] = 10
+    satir["SLA cezası"] = 0.0
+
+    plan_df = pd.DataFrame([satir])
+    rapor = DogrulamaRaporu()
+
+    check_sla_penalty(
+        plan_df,
+        talep_df,
+        _mesafe_df(),
+        rapor,
+    )
+
+    assert not rapor.hata_var_mi, rapor.ozet()
+
+# ---------------------------------------------------------------------------
+# TEST J: SLA sınırı 1 dakika aşılırsa 1 saatlik ceza uygulanmalı
+# ---------------------------------------------------------------------------
+def test_sla_bir_dakika_gecikmede_bir_saat_ceza():
+    talep_df = _talep_df()
+
+    satir = _gecerli_plan_satiri()
+
+    # SLA bitişi: 30.06.2026 09:00
+    # Varış elleçlemesi 08:51'de başlayıp 09:01'de tamamlanıyor.
+    # Böylece SLA tam 1 dakika aşılmış oluyor.
+    satir["Varış Tarihi"] = pd.Timestamp(2026, 6, 30)
+    satir["Varış Saati"] = "08:51"
+    satir["Varış elleçleme süresi"] = 10
+
+    # 1 dakika gecikme yukarı yuvarlanarak 1 saat kabul edilir.
+    # Ceza = 1000 desi × 1 saat × 0.4 TL
+    satir["SLA cezası"] = 400.0
+
+    plan_df = pd.DataFrame([satir])
+    rapor = DogrulamaRaporu()
+
+    check_sla_penalty(
+        plan_df,
+        talep_df,
+        _mesafe_df(),
+        rapor,
+    )
+
+    assert not rapor.hata_var_mi, rapor.ozet()
+
+# ---------------------------------------------------------------------------
+# TEST K: 5 Temmuz talebi SLA içinde 6 Temmuz teslim edilebilir
+# ---------------------------------------------------------------------------
+def test_bes_temmuz_talebi_alti_temmuz_teslim_edilebilir():
+    talep_df = pd.DataFrame([{
+        "Talep ID": "D00001",
+        "Tarih": pd.Timestamp(2026, 7, 5),
+        "Talep Tamamlama Saati": "17:00",
+        "Çıkış Transfer Merkezi": "İstanbul",
+        "Varış Transfer Merkezi": "Yalova",
+        "Tahmin Edilen Desi": 1000,
+    }])
+
+    satir = _gecerli_plan_satiri()
+
+    satir["Çıkış Tarihi"] = pd.Timestamp(2026, 7, 6)
+    satir["Varış Tarihi"] = pd.Timestamp(2026, 7, 6)
+    satir["Çıkış Saati"] = "08:00"
+    satir["Varış Saati"] = "08:45"
+    satir["SLA cezası"] = 0.0
+
+    plan_df = pd.DataFrame([satir])
+
+    rapor = DogrulamaRaporu()
+
+    check_sla_penalty(
+        plan_df,
+        talep_df,
+        _mesafe_df(),
+        rapor,
+    )
+
+    assert not rapor.hata_var_mi, rapor.ozet()
+
+# ---------------------------------------------------------------------------
+# TEST L: Planda tahminde olmayan talep varsa hata verilmeli
+# ---------------------------------------------------------------------------
+def test_planda_bilinmeyen_talep_hata_verir():
+    talep_df = _talep_df()
+
+    satir = _gecerli_plan_satiri()
+
+    # Tahminde olmayan bir talep
+    satir["Talep ID"] = "D99999"
+
+    plan_df = pd.DataFrame([satir])
+
+    rapor = DogrulamaRaporu()
+
+    check_talep_traceability(
+        talep_df,
+        plan_df,
+        rapor,
+    )
+
+    assert rapor.hata_var_mi
+
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-v"]))
