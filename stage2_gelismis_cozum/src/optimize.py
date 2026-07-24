@@ -239,8 +239,13 @@ def generate_plan(talep_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
             cap = vehicle_maliyet[arac_turu]["capacity"]
             
             for _ in range(arac_sayisi):
-                # Gün D saat 17:00'ye kadar tamamlanan tüm bekleyen talepler
-                active_demands = [d for d in pending_demands[(c, v)] if d["completion_time"] <= datetime.datetime(D.year, D.month, D.day, 17, 0)]
+                # Sadece 09:00 tamamlanma saatli talepler yüklenir;
+                # 17:00 talepler pending'de kalarak spot aşamasına bırakılır.
+                active_demands = [
+                    d for d in pending_demands[(c, v)]
+                    if d["completion_time"].hour == 9
+                    and d["completion_time"].date() <= D
+                ]
                 
                 loaded_demands = []
                 loaded_desi = 0.0
@@ -252,9 +257,8 @@ def generate_plan(talep_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
                     
                     load = min(d["desi"], rem_cap)
                     
-                    # Kiralık araca yüklenirse varış ve SLA gecikmesini hesapla (ön tahmin):
-                    t_start_est = max(loaded_demands[i]["completion_time"] for i in range(len(loaded_demands))) if loaded_demands else d["completion_time"]
-                    t_start_est = max(t_start_est, d["completion_time"])
+                    # Kiralik araç her zaman D günü 09:00'da yüklemeye başlar.
+                    t_start_est = datetime.datetime(D.year, D.month, D.day, 9, 0)
                     
                     c_ellec_est = handling_minutes(loaded_desi + load)
                     v_ellec_est = handling_minutes(loaded_desi + load)
@@ -307,58 +311,22 @@ def generate_plan(talep_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
                         d["desi"] -= rem_cap
                         break
                 
-                # YÜKLEME BAŞLANGIÇ ANI: Her zaman D günü; saat = loaded demands içinde
-                # herhangi bir 17:00 talebi varsa 17:00, yoksa 09:00.
-                if loaded_demands and any(item["completion_time"].hour == 17 for item in loaded_demands):
-                    t_start = datetime.datetime(D.year, D.month, D.day, 17, 0)
-                else:
-                    t_start = datetime.datetime(D.year, D.month, D.day, 9, 0)
-                    if not loaded_demands:
-                        dummy_tid = get_dummy_demand_for_route(c, v, talep_df)
-                        loaded_demands.append({
-                            "talep_id": dummy_tid,
-                            "desi": 0.0,
-                            "completion_time": t_start
-                        })
-                        loaded_desi = 0.0
+                # YÜKLEME BAŞLANGIÇ ANI: Her zaman D günü 09:00.
+                # Sadece 09:00 talep yüklendiğinden 17:00 koşulu/TIR downgrade gerekmez.
+                t_start = datetime.datetime(D.year, D.month, D.day, 9, 0)
+                if not loaded_demands:
+                    dummy_tid = get_dummy_demand_for_route(c, v, talep_df)
+                    loaded_demands.append({
+                        "talep_id": dummy_tid,
+                        "desi": 0.0,
+                        "completion_time": t_start
+                    })
+                    loaded_desi = 0.0
 
                 c_ellecleme = handling_minutes(loaded_desi)
                 v_ellecleme = handling_minutes(loaded_desi)
                 cikis_dt = t_start + timedelta(minutes=c_ellecleme)
                 varis_dt = cikis_dt + timedelta(minutes=yol_dk)
-
-                # Kiralık Tır için varış TM kapasitesi kontrolü.
-                # 17:00 kalkışı ertesi güne taşıyorsa (varis_dt.date() > D),
-                # ertesi günün kendi kiralık Tır'ı da aynı varış TM'sini kullanacağından
-                # kapasite kesinlikle aşılır. 17:00 talepleri geri kuyruğa alınır, 09:00'a düşürülür.
-                if arac_turu == "Tır" and t_start.hour == 17 and varis_dt.date() > D:
-
-                    demands_17h = [item for item in loaded_demands
-                                   if item.get("desi", 0) > 0 and item["completion_time"].hour == 17]
-                    if demands_17h:
-                        for item in demands_17h:
-                            pending_demands[(c, v)].append({
-                                "talep_id": item["talep_id"],
-                                "desi": item["desi"],
-                                "completion_time": item["completion_time"]
-                            })
-                        loaded_demands = [item for item in loaded_demands
-                                          if item["completion_time"].hour != 17 or item.get("desi", 0) == 0]
-                        loaded_desi = sum(item["desi"] for item in loaded_demands)
-                        t_start = datetime.datetime(D.year, D.month, D.day, 9, 0)
-                        if not loaded_demands:
-                            dummy_tid = get_dummy_demand_for_route(c, v, talep_df)
-                            loaded_demands.append({
-                                "talep_id": dummy_tid,
-                                "desi": 0.0,
-                                "completion_time": t_start
-                            })
-                            loaded_desi = 0.0
-                        c_ellecleme = handling_minutes(loaded_desi)
-                        v_ellecleme = handling_minutes(loaded_desi)
-                        cikis_dt = t_start + timedelta(minutes=c_ellecleme)
-                        varis_dt = cikis_dt + timedelta(minutes=yol_dk)
-
 
                 
                 cost = calculate_vehicle_cost("Kiralık", arac_turu, loaded_desi, yol_dk, mesafe_km, vehicle_maliyet)
