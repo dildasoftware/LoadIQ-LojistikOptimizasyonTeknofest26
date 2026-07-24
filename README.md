@@ -184,7 +184,6 @@ python src/forecast.py
 | [`is_kurallari_spec.md`](./stage2_gelismis_cozum/docs/is_kurallari_spec.md) | Tüm iş kurallarının tek kaynağı (şartname + Q&A + duyurular derlenmiş) |
 | [`veri_denetim_raporu.md`](./stage2_gelismis_cozum/docs/veri_denetim_raporu.md) | Veri setlerinde tespit edilen tutarsızlıklar ve çözümleri |
 | [`sistem_tasarimi_ve_uygulama_plani.md`](./stage2_gelismis_cozum/docs/sistem_tasarimi_ve_uygulama_plani.md) | Mimari tasarım ve uygulama yol haritası |
-| [`SISTEM_BRIFINGI_VE_GOREV_SOZLESMESI.md`](./stage2_gelismis_cozum/docs/SISTEM_BRIFINGI_VE_GOREV_SOZLESMESI.md) | Ekip görev dağılımı ve modüller arası arayüz sözleşmeleri |
 
 ---
 

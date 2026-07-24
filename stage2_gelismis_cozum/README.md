@@ -36,10 +36,14 @@ pip install -r requirements.txt
 py -m pytest tests/ -v
 ```
 
-## Yerel Doğrulayıcıyı Çalıştırma
+## Uçtan Uca Çalıştırma (Plan Üretimi + Doğrulama)
+
+Tam pipeline'ı çalıştırır: veri yükleme → taşıma planı (generate_plan → saat
+birleştirme → milk-run konsolidasyonu) → bağımsız checker doğrulaması. Feasible
+`outputs/Tasima-plani.xlsx` üretir ve sonucu (PASS/FAIL + maliyet) yazdırır.
 
 ```bash
-py run_checker_local.py
+py src/pipeline.py
 ```
 
 ## Talep Tahminini Üretme
@@ -51,8 +55,7 @@ py src/forecast.py          # panel oluşturma + özet istatistikler
 ## Dashboard'u Başlatma ve İzleme
 Kullanıcı arayüzü ve interaktif güzergah haritasını başlatmak için:
 *   `stage2_gelismis_cozum/start_dashboard.bat` dosyasına çift tıklayın. Bu script arka planda yerel HTTP sunucusunu başlatıp tarayıcıda ilgili adresi açacaktır.
-*   **Alternatif Manuel Yol:** Proje kök dizininde `py -m http.server 8000` çalıştırın ve tarayıcıda `http://localhost:8000/stage2_gelismis_cozum/dashboard/index.html` adresine gidin.
-*   *Uyarı:* `index.html` dosyasına doğrudan çift tıklayıp `file://` protokolü üzerinden açmayın; aksi takdirde tema tercihleri güvenlik kısıtları nedeniyle tarayıcı hafızasında (`localStorage`) kalıcı olmamaktadır.
+*   **Alternatif:** `stage2_gelismis_cozum/dashboard/LoadIQ_Dashboard.html` dosyasına doğrudan çift tıklayın. Dashboard kendi kendine yeterlidir (tek dosya) ve güncel feasible sonuçları (22,11M TL) gösterir.
 
 ## Proje Yapısı
 
