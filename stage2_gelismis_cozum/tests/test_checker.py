@@ -19,8 +19,69 @@ from checker import (
     run_all_checks, check_id_formats, check_talep_traceability,
     check_tir_capacity, check_ellecleme_capacity, check_sla_penalty,
     check_cost, check_arac_kapasitesi, check_kiralik_filo,
-    check_bos_spot_arac, check_milkrun_tutarlilik, DogrulamaRaporu,
+    check_bos_spot_arac, check_milkrun_tutarlilik, check_cikis_hazirlik, DogrulamaRaporu,
 )
+
+
+# ---------------------------------------------------------------------------
+# TEST R: Çıkış Hazırlık Geçerli (Çıkış zamanı >= Yük hazır olma anı) -> PASS
+# ---------------------------------------------------------------------------
+def test_cikis_hazirlik_gecerli_pass_veriyor():
+    """
+    Araç çıkış zamanı (09:00), talep hazır olma zamanı (09:00) veya sonrasındaysa
+    CIKIS_HAZIRLIK hatası üretilmemeli.
+    """
+    satir = _gecerli_plan_satiri()
+    satir["Talep ID"] = "D00001"
+    satir["Çıkış Tarihi"] = pd.Timestamp(2026, 6, 29)
+    satir["Çıkış Saati"] = "09:00"
+    plan_df = pd.DataFrame([satir])
+
+    talep_df = pd.DataFrame([{
+        "Talep ID": "D00001",
+        "Tarih": pd.Timestamp(2026, 6, 29),
+        "Talep Tamamlama Saati": "09:00",
+        "Tahmin Edilen Desi": 100
+    }])
+
+    rapor = DogrulamaRaporu()
+    check_cikis_hazirlik(plan_df, talep_df, rapor)
+
+    assert not rapor.hata_var_mi, f"Geçerli çıkış hazırlık hata vermemeliydi: {rapor.ozet()}"
+
+
+# ---------------------------------------------------------------------------
+# TEST S: Çıkış Hazırlık Uyumsuz (Çıkış < Yük hazır olma anı) -> HATA
+# ---------------------------------------------------------------------------
+def test_cikis_hazirlik_erken_cikis_hata_verir():
+    """
+    Araç çıkış zamanı (09:00), talep hazır olma zamanından (17:00) önce ise
+    CIKIS_HAZIRLIK hatası üretilmeli.
+    """
+    satir = _gecerli_plan_satiri()
+    satir["Talep ID"] = "D00002"
+    satir["Çıkış Tarihi"] = pd.Timestamp(2026, 6, 29)
+    satir["Çıkış Saati"] = "09:00"  # Erken çıkış!
+    plan_df = pd.DataFrame([satir])
+
+    talep_df = pd.DataFrame([{
+        "Talep ID": "D00002",
+        "Tarih": pd.Timestamp(2026, 6, 29),
+        "Talep Tamamlama Saati": "17:00",  # 17:00'de hazır oluyor
+        "Tahmin Edilen Desi": 100
+    }])
+
+    rapor = DogrulamaRaporu()
+    check_cikis_hazirlik(plan_df, talep_df, rapor)
+
+    assert rapor.hata_var_mi, "Erken çıkış CIKIS_HAZIRLIK hatası üretmelidir."
+    assert any(s.kategori == "CIKIS_HAZIRLIK" for s in rapor.sorunlar)
+
+
+if __name__ == "__main__":
+    import pytest
+    raise SystemExit(pytest.main([__file__, "-v"]))
+
 
 
 # ---------------------------------------------------------------------------

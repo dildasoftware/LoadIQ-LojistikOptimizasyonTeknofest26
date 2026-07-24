@@ -550,7 +550,61 @@ def check_milkrun_tutarlilik(plan_df: pd.DataFrame, mesafe_df: pd.DataFrame,
 
 
 # ---------------------------------------------------------------------------
-# 12. Ana Fonksiyon
+# 12. Çıkış Hazırlık Kontrolü: Araç çıkış anı, yük hazır olma anından önce olamaz
+# ---------------------------------------------------------------------------
+def check_cikis_hazirlik(plan_df: pd.DataFrame, talep_df: pd.DataFrame,
+                         rapor: DogrulamaRaporu):
+    """
+    Her plan satırı için: O satırdaki Talep ID'nin (kök ID) tahmindeki (talep_df)
+    talep tamamlanma anı (Tarih + Talep Tamamlama Saati) ile aracın ÇIKIŞ anını
+    (Çıkış Tarihi + Çıkış Saati) karşılaştırır.
+
+    Eğer aracın ÇIKIŞ anı yükün hazır olma (tamamlanma) anından ÖNCE ise
+    "CIKIS_HAZIRLIK" kategorisinde HATA eklenir.
+    """
+    if plan_df.empty or talep_df.empty:
+        return
+
+    talep_hazir_map = {}
+    if "Talep ID" in talep_df.columns:
+        for _, row in talep_df.iterrows():
+            tid = str(row["Talep ID"])
+            kok = _base_talep_id(tid)
+            t_dt = _to_dt(row["Tarih"], row["Talep Tamamlama Saati"])
+            talep_hazir_map[tid] = t_dt
+            talep_hazir_map[kok] = t_dt
+    else:
+        # data_loader / panel formatı
+        for _, row in talep_df.iterrows():
+            if "tarih" in row and "saat" in row:
+                t_dt = _to_dt(row["tarih"], row["saat"])
+                key = (row.get("cikis"), row.get("varis"), row.get("tarih"), row.get("saat"))
+                talep_hazir_map[key] = t_dt
+
+    for _, row in plan_df.iterrows():
+        tid = str(row["Talep ID"])
+        kok = _base_talep_id(tid)
+        hazir_dt = talep_hazir_map.get(tid) or talep_hazir_map.get(kok)
+        if hazir_dt is None:
+            continue
+
+        cikis_tarih = row.get("Çıkış Tarihi")
+        cikis_saat = row.get("Çıkış Saati")
+        if pd.isna(cikis_tarih) or pd.isna(cikis_saat):
+            continue
+
+        cikis_dt = _to_dt(cikis_tarih, cikis_saat)
+        arac_id = row.get("Araç ID")
+
+        if cikis_dt < hazir_dt:
+            rapor.ekle(
+                "CIKIS_HAZIRLIK", "HATA",
+                f"Araç {arac_id}, talep {tid}, çıkış {cikis_dt} ama yük {hazir_dt} anında hazır oluyor"
+            )
+
+
+# ---------------------------------------------------------------------------
+# 13. Ana Fonksiyon
 # ---------------------------------------------------------------------------
 def run_all_checks(talep_df, plan_df, mesafe_df, tir_kapasitesi_df,
                     ellecleme_df, arac_maliyet_df,
@@ -565,6 +619,8 @@ def run_all_checks(talep_df, plan_df, mesafe_df, tir_kapasitesi_df,
     check_arac_kapasitesi(plan_df, arac_maliyet_df, rapor)
     check_bos_spot_arac(plan_df, rapor)
     check_milkrun_tutarlilik(plan_df, mesafe_df, arac_maliyet_df, rapor)
+    check_cikis_hazirlik(plan_df, talep_df, rapor)
     if kiralik_araclar_df is not None:
         check_kiralik_filo(plan_df, kiralik_araclar_df, rapor)
     return rapor
+
