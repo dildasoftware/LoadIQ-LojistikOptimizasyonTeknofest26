@@ -19,8 +19,119 @@ from checker import (
     run_all_checks, check_id_formats, check_talep_traceability,
     check_tir_capacity, check_ellecleme_capacity, check_sla_penalty,
     check_cost, check_arac_kapasitesi, check_kiralik_filo,
-    check_bos_spot_arac, DogrulamaRaporu,
+    check_bos_spot_arac, check_milkrun_tutarlilik, DogrulamaRaporu,
 )
+
+
+# ---------------------------------------------------------------------------
+# TEST P: Milk-Run Geçerli 2-Bacaklı Sefer -> HATA YOK
+# ---------------------------------------------------------------------------
+def test_milkrun_gecerli_pass_veriyor():
+    """
+    Geçerli 2-bacaklı milk-run (İstanbul -> Kocaeli -> Bursa) zinciri düzgün
+    ve maliyeti doğru hesaplanmışsa HATA üretmemeli.
+    """
+    mesafe_df = pd.DataFrame([
+        {"cikis": "İstanbul", "varis": "Kocaeli", "mesafe_km": 100.0, "sla_gun": 1, "kamyonet_saat": 1.0},
+        {"cikis": "Kocaeli", "varis": "Bursa", "mesafe_km": 150.0, "sla_gun": 1, "kamyonet_saat": 1.0},
+    ])
+    arac_maliyet_df = pd.DataFrame([{
+        "arac_adi": "Kamyonet", "kapasite_desi": 5600,
+        "kiralik_saatlik_tl": 50, "kiralik_km_tl": 5,
+        "spot_saatlik_tl": 100, "spot_km_tl": 10
+    }])
+
+    bacak1 = _gecerli_plan_satiri()
+    bacak1["Araç ID"] = "V8001"
+    bacak1["Araç türü"] = "Kamyonet"
+    bacak1["Araç Tipi"] = "Spot"
+    bacak1["Çıkış Transfer Merkezi"] = "İstanbul"
+    bacak1["Varış Transfer Merkezi"] = "Kocaeli"
+    bacak1["Çıkış Tarihi"] = pd.Timestamp(2026, 6, 29)
+    bacak1["Çıkış Saati"] = "09:00"
+    bacak1["Varış Tarihi"] = pd.Timestamp(2026, 6, 29)
+    bacak1["Varış Saati"] = "11:00"
+    bacak1["Çıkış Elleçleme süresi"] = 30
+    bacak1["Yolculuk süresi"] = 60
+    bacak1["Varış elleçleme süresi"] = 30
+    # Toplam kullanım bacak1 = 120 dk
+
+    bacak2 = _gecerli_plan_satiri()
+    bacak2["Araç ID"] = "V8001"
+    bacak2["Araç türü"] = "Kamyonet"
+    bacak2["Araç Tipi"] = "Spot"
+    bacak2["Çıkış Transfer Merkezi"] = "Kocaeli"
+    bacak2["Varış Transfer Merkezi"] = "Bursa"
+    bacak2["Çıkış Tarihi"] = pd.Timestamp(2026, 6, 29)
+    bacak2["Çıkış Saati"] = "12:00"
+    bacak2["Varış Tarihi"] = pd.Timestamp(2026, 6, 29)
+    bacak2["Varış Saati"] = "14:00"
+    bacak2["Çıkış Elleçleme süresi"] = 30
+    bacak2["Yolculuk süresi"] = 60
+    bacak2["Varış elleçleme süresi"] = 30
+    # Toplam kullanım bacak2 = 120 dk
+
+    # Toplam kullanım = 240 dk = 4 saat. Toplam mesafe = 250 km.
+    # Beklenen maliyet = (100 * 4) + (10 * 250) = 400 + 2500 = 2900 TL
+    bacak1["Toplam maliyet"] = 2900.0
+    bacak2["Toplam maliyet"] = 0.0
+
+    plan_df = pd.DataFrame([bacak1, bacak2])
+
+    rapor = DogrulamaRaporu()
+    check_milkrun_tutarlilik(plan_df, mesafe_df, arac_maliyet_df, rapor)
+
+    assert not rapor.hata_var_mi, f"Geçerli milk-run hata vermemeliydi: {rapor.ozet()}"
+
+
+# ---------------------------------------------------------------------------
+# TEST Q: Milk-Run Zinciri Kopuk (bacak[i].varis != bacak[i+1].cikis) -> HATA
+# ---------------------------------------------------------------------------
+def test_milkrun_zincir_kopuk_hata_verir():
+    """
+    Zinciri kopuk milk-run (İstanbul -> Kocaeli, sonra Bursa -> Ankara)
+    MILKRUN_ZINCIR hatası üretmelidir.
+    """
+    mesafe_df = pd.DataFrame([
+        {"cikis": "İstanbul", "varis": "Kocaeli", "mesafe_km": 100.0, "sla_gun": 1, "kamyonet_saat": 1.0},
+        {"cikis": "Bursa", "varis": "Ankara", "mesafe_km": 350.0, "sla_gun": 1, "kamyonet_saat": 3.0},
+    ])
+    arac_maliyet_df = pd.DataFrame([{
+        "arac_adi": "Kamyonet", "kapasite_desi": 5600,
+        "kiralik_saatlik_tl": 50, "kiralik_km_tl": 5,
+        "spot_saatlik_tl": 100, "spot_km_tl": 10
+    }])
+
+    bacak1 = _gecerli_plan_satiri()
+    bacak1["Araç ID"] = "V8002"
+    bacak1["Çıkış Transfer Merkezi"] = "İstanbul"
+    bacak1["Varış Transfer Merkezi"] = "Kocaeli"
+    bacak1["Çıkış Tarihi"] = pd.Timestamp(2026, 6, 29)
+    bacak1["Çıkış Saati"] = "09:00"
+    bacak1["Varış Tarihi"] = pd.Timestamp(2026, 6, 29)
+    bacak1["Varış Saati"] = "11:00"
+
+    bacak2 = _gecerli_plan_satiri()
+    bacak2["Araç ID"] = "V8002"
+    bacak2["Çıkış Transfer Merkezi"] = "Bursa"  # Kocaeli olmalıydı -> KOPUK!
+    bacak2["Varış Transfer Merkezi"] = "Ankara"
+    bacak2["Çıkış Tarihi"] = pd.Timestamp(2026, 6, 29)
+    bacak2["Çıkış Saati"] = "12:00"
+    bacak2["Varış Tarihi"] = pd.Timestamp(2026, 6, 29)
+    bacak2["Varış Saati"] = "16:00"
+
+    plan_df = pd.DataFrame([bacak1, bacak2])
+
+    rapor = DogrulamaRaporu()
+    check_milkrun_tutarlilik(plan_df, mesafe_df, arac_maliyet_df, rapor)
+
+    assert rapor.hata_var_mi, "Zinciri kopuk milk-run HATA üretmelidir."
+    assert any(s.kategori == "MILKRUN_ZINCIR" for s in rapor.sorunlar)
+
+
+if __name__ == "__main__":
+    import pytest
+    raise SystemExit(pytest.main([__file__, "-v"]))
 from time_utils import travel_minutes, handling_minutes
 
 
