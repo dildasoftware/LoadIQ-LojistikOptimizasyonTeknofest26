@@ -153,6 +153,7 @@ def run_pipeline() -> None:
         tir_kapasitesi_df=veri["tir_kapasitesi"],
         ellecleme_df=veri["ellecleme_kapasitesi"],
         arac_maliyet_df=veri["arac_maliyet"],
+        kiralik_araclar_df=veri["kiralik_araclar"],
     )
 
     print("\n" + rapor.ozet())

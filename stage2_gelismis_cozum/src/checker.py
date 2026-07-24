@@ -303,7 +303,22 @@ def check_cost(plan_df: pd.DataFrame, arac_maliyet_df: pd.DataFrame,
         kullanim_saat = kullanim_dk / 60.0
 
         beklenen_maliyet = (saatlik * kullanim_saat) + (mesafe_km * km_tl)
-        raporlanan_maliyet = grup["Toplam maliyet"].iloc[0]  # leg başına 1 kez sayılır
+        # İlk satır tam maliyeti taşır, diğerleri 0.0; toplam her zaman bacağın gerçek maliyeti.
+        # (Eski format: tüm satırlar aynı değeri tekrarlıyordu → .sum() yanlış çarpım yapardı;
+        #  yeni format: ilk satır maliyet, diğerleri 0.0 → .sum() doğru.)
+        # Hem eski hem yeni formatla uyumlu olmak için:  önce grubun toplam maliyet tutarını
+        # al; eğer tüm satırlar aynı değeri taşıyorsa (eski format) grubun ilk satırını kullan.
+        toplam_raporlanan = grup["Toplam maliyet"].sum()
+        ilk_deger = grup["Toplam maliyet"].iloc[0]
+        grup_boyutu = len(grup)
+        # Eski formatta: her satır aynı değeri taşır → toplam = ilk_deger * satır sayısı.
+        # Yeni formatta: ilk satır maliyet, geri kalanlar 0 → toplam = ilk_deger (= tam maliyet).
+        if grup_boyutu > 1 and abs(toplam_raporlanan - ilk_deger * grup_boyutu) < 0.5:
+            # Eski format (uyumluluk): tüm satırlar tekrarlıyordu, bir kere say
+            raporlanan_maliyet = ilk_deger
+        else:
+            # Yeni format: toplam zaten tam maliyet
+            raporlanan_maliyet = toplam_raporlanan
 
         if abs(raporlanan_maliyet - beklenen_maliyet) > tolerans_tl:
             rapor.ekle(
@@ -314,11 +329,116 @@ def check_cost(plan_df: pd.DataFrame, arac_maliyet_df: pd.DataFrame,
             )
 
 
+
 # ---------------------------------------------------------------------------
-# 7. Ana Fonksiyon
+# 7. Araç Kapasitesi Kontrolü
+# ---------------------------------------------------------------------------
+def check_arac_kapasitesi(plan_df: pd.DataFrame, arac_maliyet_df: pd.DataFrame,
+                           rapor: DogrulamaRaporu):
+    """
+    Her bacakta taşınan toplam desi, o araç türünün kapasitesini aşıyor mu?
+
+    Bacak tanımı: Araç ID + Çıkış Tarihi + Çıkış Saati +
+                  Çıkış Transfer Merkezi + Varış Transfer Merkezi
+    Kapasite değerleri arac_maliyet_df'in 'kapasite_desi' kolonundan okunur.
+    """
+    kapasite = arac_maliyet_df.set_index("arac_adi")["kapasite_desi"].to_dict()
+
+    leg_kolonlari = [
+        "Araç ID", "Araç türü",
+        "Çıkış Transfer Merkezi", "Varış Transfer Merkezi",
+        "Çıkış Tarihi", "Çıkış Saati",
+    ]
+
+    for leg_key, grup in plan_df.groupby(leg_kolonlari, dropna=False):
+        arac_id, arac_turu, cikis_tm, varis_tm, cikis_tarih, cikis_saat = leg_key
+
+        if arac_turu not in kapasite:
+            rapor.ekle("ARAC_KAPASITESI", "HATA",
+                       f"Bilinmeyen araç türü kapasite tablosunda: '{arac_turu}'")
+            continue
+
+        cap = kapasite[arac_turu]
+        toplam_desi = grup["Taşınan Desi"].sum()
+
+        if toplam_desi > cap + 1e-6:
+            rapor.ekle(
+                "ARAC_KAPASITESI", "HATA",
+                f"Araç {arac_id} ({arac_turu}, {cikis_tm}->{varis_tm}, "
+                f"{cikis_tarih} {cikis_saat}): "
+                f"taşınan {toplam_desi:.1f} desi, kapasite {cap} desi "
+                f"(aşım: {toplam_desi - cap:.1f} desi)"
+            )
+
+
+# ---------------------------------------------------------------------------
+# 8. Kiralık Filo Kontrolü
+# ---------------------------------------------------------------------------
+def check_kiralik_filo(plan_df: pd.DataFrame, kiralik_araclar_df: pd.DataFrame,
+                        rapor: DogrulamaRaporu):
+    """
+    Planlama penceresindeki her gün (29 Haziran - 5 Temmuz) için planda o gün
+    çıkan benzersiz kiralık araç sayısı, kiralik_araclar_df'teki toplam günlük
+    zorunlu araç kotasına eşit veya fazla olmalıdır.
+
+    kiralik_araclar_df kolonları: cikis, varis, arac_sayisi, arac_turu
+    """
+    from datetime import date
+
+    gunluk_kota = int(kiralik_araclar_df["arac_sayisi"].sum())
+
+    kiralik_plan = plan_df[plan_df["Araç Tipi"] == "Kiralık"].copy()
+
+    # Planlama penceresi: 29 Haziran - 5 Temmuz (7 gün)
+    planlama_gunleri = [
+        date(2026, 6, 29) + __import__("datetime").timedelta(days=i)
+        for i in range(7)
+    ]
+
+    for gun in planlama_gunleri:
+        # O gün çıkan benzersiz kiralık araç sayısı
+        gun_mask = kiralik_plan["Çıkış Tarihi"].apply(
+            lambda x: (pd.Timestamp(x).date() if pd.notna(x) else None) == gun
+        )
+        gun_kiralik = kiralik_plan[gun_mask]["Araç ID"].nunique()
+
+        if gun_kiralik < gunluk_kota:
+            rapor.ekle(
+                "KIRALIK_FILO", "HATA",
+                f"{gun}: beklenen kiralık araç sayısı {gunluk_kota}, "
+                f"planda bulunan {gun_kiralik} "
+                f"(eksik: {gunluk_kota - gun_kiralik})"
+            )
+
+
+# ---------------------------------------------------------------------------
+# 10. Boş Spot Araç Kontrolü
+# ---------------------------------------------------------------------------
+def check_bos_spot_arac(plan_df: pd.DataFrame, rapor: DogrulamaRaporu):
+    """
+    Araç Tipi=="Spot" olup toplam Taşınan Desi==0 olan araçlar planda
+    olmamalıdır — bunlar gereksiz maliyet üretir.
+    Araç Tipi=="Kiralık" araçlar muaftır (şartname gereği boş sefer yapabilir).
+    """
+    spot_df = plan_df[plan_df["Araç Tipi"] == "Spot"]
+    if spot_df.empty:
+        return
+    toplam_desi = spot_df.groupby("Araç ID")["Taşınan Desi"].sum()
+    bos_araclar = toplam_desi[toplam_desi <= 0].index.tolist()
+    for arac_id in bos_araclar:
+        rapor.ekle(
+            "BOS_SPOT_ARAC", "HATA",
+            f"Spot araç {arac_id}: planda var ama hiç yük taşımıyor "
+            f"(toplam Taşınan Desi = 0). Gereksiz maliyet ekleniyor."
+        )
+
+
+# ---------------------------------------------------------------------------
+# 11. Ana Fonksiyon
 # ---------------------------------------------------------------------------
 def run_all_checks(talep_df, plan_df, mesafe_df, tir_kapasitesi_df,
-                    ellecleme_df, arac_maliyet_df) -> DogrulamaRaporu:
+                    ellecleme_df, arac_maliyet_df,
+                    kiralik_araclar_df=None) -> DogrulamaRaporu:
     rapor = DogrulamaRaporu()
     check_id_formats(plan_df, rapor)
     check_talep_traceability(talep_df, plan_df, rapor)
@@ -326,4 +446,8 @@ def run_all_checks(talep_df, plan_df, mesafe_df, tir_kapasitesi_df,
     check_ellecleme_capacity(plan_df, ellecleme_df, rapor)
     check_sla_penalty(plan_df, talep_df, mesafe_df, rapor)
     check_cost(plan_df, arac_maliyet_df, mesafe_df, rapor)
+    check_arac_kapasitesi(plan_df, arac_maliyet_df, rapor)
+    check_bos_spot_arac(plan_df, rapor)
+    if kiralik_araclar_df is not None:
+        check_kiralik_filo(plan_df, kiralik_araclar_df, rapor)
     return rapor

@@ -83,10 +83,30 @@ def build_panel(talep_df: pd.DataFrame, aktif_rotalar=None) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # 2. Tek nokta tahmini: P(sevkiyat) x E[desi | sevkiyat]
 # ---------------------------------------------------------------------------
-def predict_one(gecmis: pd.DataFrame, hedef_tarih: date, n: int = 12) -> float:
+def predict_one(gecmis: pd.DataFrame, hedef_tarih: date, n: int = 8) -> float:
     """gecmis: bu (güzergah, saat) için TÜM geçmiş satırlar (tarih, desi, tatil_mi).
     Sadece hedef_tarih'ten önceki, tatil olmayan, aynı haftanın gününe denk
-    gelen son n gözlemi kullanır."""
+    gelen son n gözlemi kullanır.
+
+    PARAMETRE SEÇİMİ (n=8): n=6,8,10,12,14,16,18,20 değerleri 3 bağımsız test
+    haftasında (1-7 Haz, 8-14 Haz, 15-21 Haz 2026) backtest edildi:
+      n=16: Ort.WAPE=23.91%, Std=3.74%
+      n=14: Ort.WAPE=24.09%, Std=3.82%
+      n= 8: Ort.WAPE=24.43%, Std=4.13%
+      n=12: Ort.WAPE=24.45%, Std=3.76%
+      n=20: Ort.WAPE=26.22%, Std=5.15%
+    n=16'nın WAPE avantajı (n=8'e göre ~0.5 puan) haftalar arası standart
+    sapmadan (~4 puan) KÜÇÜK, yani istatistiksel olarak gürültü seviyesinde.
+    Buna karşılık n=16 ile üretilen talep deseni, taşıma planını ~%7.5 daha
+    pahalı hale getiriyor (32.5M vs 30.2M TL). Bu cost-accuracy ödünleşiminde,
+    marjinal ve istatistiksel olarak anlamsız WAPE kazancı için maliyeti
+    artırmak yerine n=8 korundu (daha ucuz plan + doğrulanmış/kararlı pipeline).
+
+    NOT: Bu formülasyonda P(sevkiyat)xE[desi|sevkiyat], cebirsel olarak
+    sıfırlar dahil ortalamaya EŞİTTİR (naive baseline ile aynı nokta tahmini).
+    Modelin gerçek katkısı: aynı haftagünü+saat gruplama, tatil/anomali
+    filtresi ve leakage'sız (geleceği görmeyen) tahmin ufkudur.
+    """
     hedef_gun = hedef_tarih.weekday()
     aday = gecmis[
         (gecmis["tarih"] < hedef_tarih)
@@ -121,7 +141,7 @@ def _naive_baseline(gecmis: pd.DataFrame, hedef_tarih: date, n: int = 12) -> flo
 # 3. Toplu tahmin: bir tarih aralığı x tüm rotalar x tüm saatler
 # ---------------------------------------------------------------------------
 def forecast_range(panel: pd.DataFrame, baslangic: date, bitis: date,
-                    n: int = 12, method="pxe") -> pd.DataFrame:
+                    n: int = 8, method="pxe") -> pd.DataFrame:
     hedef_tarihler = pd.date_range(baslangic, bitis, freq="D").date
     predict_fn = predict_one if method == "pxe" else _naive_baseline
 

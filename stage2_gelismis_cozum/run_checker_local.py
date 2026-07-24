@@ -3,8 +3,9 @@ import sys
 import time
 import pandas as pd
 
-sys.path.insert(0, os.path.abspath("src"))
-sys.path.insert(0, os.path.abspath("config"))
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(_THIS_DIR, "src"))
+sys.path.insert(0, os.path.join(_THIS_DIR, "config"))
 
 from data_loader import load_all
 from optimize import generate_plan
@@ -15,7 +16,7 @@ def run_test():
     veri = load_all()
     
     # Read the forecasted demands
-    forecast_path = os.path.join("outputs", "Talep-tahmini.xlsx")
+    forecast_path = os.path.join(_THIS_DIR, "outputs", "Talep-tahmini.xlsx")
     if not os.path.exists(forecast_path):
         print(f"Error: {forecast_path} not found. Please run forecast.py first if needed.")
         return
@@ -71,7 +72,7 @@ def run_test():
     print(rapor_full.ozet())
     
     # Save the full plan
-    output_plan_path = os.path.join("outputs", "Tasima_Plani.xlsx")
+    output_plan_path = os.path.join(_THIS_DIR, "outputs", "Tasima_Plani.xlsx")
     plan_df_full.to_excel(output_plan_path, index=False)
     print(f"\nSaved full plan to {output_plan_path}")
     

@@ -18,7 +18,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "config"))
 from checker import (
     run_all_checks, check_id_formats, check_talep_traceability,
     check_tir_capacity, check_ellecleme_capacity, check_sla_penalty,
-    check_cost, DogrulamaRaporu,
+    check_cost, check_arac_kapasitesi, check_kiralik_filo,
+    check_bos_spot_arac, DogrulamaRaporu,
 )
 from time_utils import travel_minutes, handling_minutes
 
@@ -332,6 +333,82 @@ def test_planda_bilinmeyen_talep_hata_verir():
     )
 
     assert rapor.hata_var_mi
+
+
+# ---------------------------------------------------------------------------
+# TEST M: Araç kapasitesini aşan yük -> HATA yakalanmalı
+# ---------------------------------------------------------------------------
+def test_arac_kapasitesi_asimi_yakalaniyor():
+    """Kamyonet kapasitesi 5600 desi; 6000 desi yüklenirse HATA çıkmalı."""
+    satir = _gecerli_plan_satiri(desi=6000)   # Kamyonet kapasitesi 5600
+    plan_df = pd.DataFrame([satir])
+
+    rapor = DogrulamaRaporu()
+    check_arac_kapasitesi(plan_df, _arac_maliyet_df(), rapor)
+
+    assert rapor.hata_var_mi
+    assert any(s.kategori == "ARAC_KAPASITESI" for s in rapor.sorunlar)
+
+
+# ---------------------------------------------------------------------------
+# TEST N: Bir gün eksik kiralık filo -> HATA yakalanmalı
+# ---------------------------------------------------------------------------
+def test_eksik_kiralik_filo_yakalaniyor():
+    """
+    Günlük kota 2 kiralık araç; 29 Haziran'da yalnızca 1 araç planlanırsa
+    KIRALIK_FILO hatası üretilmeli.
+    """
+    # kiralik_araclar_df: 2 satır -> günlük toplam kota = 2
+    kiralik_df = pd.DataFrame([
+        {"cikis": "İstanbul", "varis": "Yalova", "arac_sayisi": 1, "arac_turu": "Kamyonet"},
+        {"cikis": "Yalova", "varis": "İstanbul", "arac_sayisi": 1, "arac_turu": "Kamyonet"},
+    ])
+
+    # Sadece 1 kiralık araç var, 29 Haziran'da
+    satir = _gecerli_plan_satiri()
+    satir["Araç Tipi"] = "Kiralık"
+    satir["Çıkış Tarihi"] = pd.Timestamp(2026, 6, 29)
+
+    plan_df = pd.DataFrame([satir])
+
+    rapor = DogrulamaRaporu()
+    check_kiralik_filo(plan_df, kiralik_df, rapor)
+
+    assert rapor.hata_var_mi
+    assert any(s.kategori == "KIRALIK_FILO" for s in rapor.sorunlar)
+
+
+# ---------------------------------------------------------------------------
+# TEST O: Boş Spot araç (0 desi) -> HATA yakalanmalı
+# ---------------------------------------------------------------------------
+def test_bos_spot_arac_yakalaniyor():
+    """
+    Araç Tipi=="Spot" ve toplam Taşınan Desi==0 olan araç planda bulunursa
+    BOS_SPOT_ARAC hatası üretilmeli.
+    Kiralık boş araç (Araç Tipi=="Kiralık") hata üretmemeli.
+    """
+    # Spot araç, 0 desi -> HATA beklenir
+    satir = _gecerli_plan_satiri(desi=0)
+    satir["Araç Tipi"] = "Spot"
+    satir["Araç ID"] = "V9901"
+    plan_df = pd.DataFrame([satir])
+
+    rapor = DogrulamaRaporu()
+    check_bos_spot_arac(plan_df, rapor)
+
+    assert rapor.hata_var_mi, "Bos Spot arac HATA uretmeli"
+    assert any(s.kategori == "BOS_SPOT_ARAC" for s in rapor.sorunlar)
+
+    # Kiralık boş araç -> HATA OLMAMALI
+    satir_kiralik = _gecerli_plan_satiri(desi=0)
+    satir_kiralik["Araç Tipi"] = "Kiralık"
+    satir_kiralik["Araç ID"] = "V9902"
+    plan_kiralik = pd.DataFrame([satir_kiralik])
+
+    rapor2 = DogrulamaRaporu()
+    check_bos_spot_arac(plan_kiralik, rapor2)
+    assert not rapor2.hata_var_mi, "Kiralik bos arac BOS_SPOT_ARAC hatasi uretmemeli"
+
 
 if __name__ == "__main__":
     import pytest

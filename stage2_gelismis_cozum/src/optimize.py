@@ -541,17 +541,17 @@ def generate_plan(talep_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
         v_dk = trip["varis_ellecleme"]
         cost = trip["maliyet"]
 
-        for d in trip["demands"]:
+        for demand_index, d in enumerate(trip["demands"]):
             base_id = d["talep_id"]
             desi = d["desi"]
-            
+
             if base_counts[base_id] > 1:
                 split_indices[base_id] += 1
                 talep_id_str = f"{base_id}-{split_indices[base_id]}"
             else:
                 talep_id_str = base_id
-                
-            # SLA cezası hesabı
+
+            # SLA cezası hesabı (talep/satır bazında doğru — dokunulmadı)
             bilgi = talep_bilgi.get(base_id)
             if bilgi is not None:
                 talep_tamamlanma = to_datetime(bilgi["Tarih"], bilgi["Talep Tamamlama Saati"])
@@ -566,6 +566,12 @@ def generate_plan(talep_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
                     sla_penalty = desi * gecikme_saat * rules.SLA_CEZA_TL_PER_DESI_SAAT
             else:
                 sla_penalty = 0.0
+
+            # "Toplam maliyet": bacak (leg) maliyeti yalnızca İLK satıra yazılır.
+            # Aynı bacağın 2., 3., ... talep satırlarına 0.0 yazılır.
+            # Böylece sütunun düz toplamı = gerçek araç maliyeti (şişme yok).
+            # NOT: SLA cezası sütunu zaten satır bazında doğru; değiştirilmedi.
+            satir_maliyeti = round(cost, 2) if demand_index == 0 else 0.0
 
             rows.append({
                 "Araç ID": arac_id,
@@ -583,10 +589,15 @@ def generate_plan(talep_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
                 "Varış elleçleme süresi": int(v_dk),
                 "Çıkış Elleçleme süresi": int(c_dk),
                 "SLA cezası": round(sla_penalty, 2),
-                "Toplam maliyet": round(cost, 2)
+                "Toplam maliyet": satir_maliyeti,
             })
 
     plan_df = pd.DataFrame(rows)
+
+    # 0-desi Spot satırlarını ve tamamen boş Spot araçlarını temizle.
+    # Kiralık araçlar şartname gereği boş sefer yapabilir → dokunma.
+    plan_df = _temizle_bos_spot(plan_df)
+
     cols = [
         "Araç ID", "Araç Tipi", "Araç türü", "Çıkış Transfer Merkezi",
         "Varış Transfer Merkezi", "Çıkış Tarihi", "Çıkış Saati", "Varış Tarihi",
@@ -595,3 +606,81 @@ def generate_plan(talep_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
         "Toplam maliyet"
     ]
     return plan_df[cols]
+
+
+# ---------------------------------------------------------------------------
+# Yardımcı: 0-desi Spot satır ve araç temizleyici
+# ---------------------------------------------------------------------------
+def _temizle_bos_spot(plan_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Spot araçlarda ortaya çıkan 0-desilik parça satırlarını ve bu nedenle
+    tamamen boş kalan Spot araçlarını plandan çıkarır.
+
+    Neden oluşur: Bir talep bölünürken kalan parça bir Spot araca atanır;
+    ama o parçanın gerçek yükü (desi) başka bir araçta taşınmış olduğundan
+    bu araçtaki satır 0 desi ile kalır.
+
+    Kural:
+    - Araç Tipi == "Spot" ve toplam Taşınan Desi == 0 → tüm satırları sil.
+    - Spot bacak içinde 0-desi satır var ama bacak toplamı > 0 → sadece 0-desi
+      satırları sil; leg maliyeti (Toplam maliyet toplamı) kaybedilmeden
+      kalan ilk dolu satıra aktarılır.
+    - Araç Tipi == "Kiralık" → HIÇBIR satıra dokunma.
+    """
+    if plan_df.empty:
+        return plan_df
+
+    mask_kiralik = plan_df["Araç Tipi"] == "Kiralık"
+    kiralik_df = plan_df[mask_kiralik].copy()
+    spot_df = plan_df[~mask_kiralik].copy()
+
+    if spot_df.empty:
+        return plan_df
+
+    LEG_COLS = [
+        "Araç ID", "Çıkış Transfer Merkezi", "Varış Transfer Merkezi",
+        "Çıkış Tarihi", "Çıkış Saati",
+    ]
+
+    temiz_parcalar = []
+    for arac_id, arac_grup in spot_df.groupby("Araç ID", sort=False):
+        if arac_grup["Taşınan Desi"].sum() <= 0:
+            # Araç tamamen boş → at, maliyetini de at (gerçeksiz sefer)
+            continue
+
+        # Araç dolu, ama bazı satırlar 0-desi olabilir
+        leg_parcalar = []
+        for _, leg_grup in arac_grup.groupby(LEG_COLS, dropna=False, sort=False):
+            toplam_desi = leg_grup["Taşınan Desi"].sum()
+            if toplam_desi <= 0:
+                # Leg tamamen boş (savunmacı; yukarıda zaten araç kontrolü var)
+                continue
+
+            dolu_mask = leg_grup["Taşınan Desi"] > 0
+            if dolu_mask.all():
+                leg_parcalar.append(leg_grup)
+                continue
+
+            # 0-desi satır(lar) var; maliyet toplamını koru, satırları at
+            leg_maliyet = round(float(leg_grup["Toplam maliyet"].sum()), 2)
+            dolu_grup = leg_grup[dolu_mask].copy().reset_index(drop=True)
+
+            # Eğer cost 0-desi satırdaydı (demand_index==0), kaybolmuş olur
+            # → ilk dolu satıra yükle
+            maliyet_dolu = round(float(dolu_grup["Toplam maliyet"].sum()), 2)
+            if abs(maliyet_dolu - leg_maliyet) > 0.005:
+                dolu_grup.at[dolu_grup.index[0], "Toplam maliyet"] = leg_maliyet
+
+            leg_parcalar.append(dolu_grup)
+
+        if leg_parcalar:
+            temiz_parcalar.append(pd.concat(leg_parcalar, ignore_index=True))
+
+    spot_temiz = (
+        pd.concat(temiz_parcalar, ignore_index=True)
+        if temiz_parcalar
+        else pd.DataFrame(columns=spot_df.columns)
+    )
+
+    return pd.concat([kiralik_df, spot_temiz], ignore_index=True)
+
