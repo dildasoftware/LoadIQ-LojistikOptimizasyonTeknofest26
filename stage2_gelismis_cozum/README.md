@@ -156,11 +156,10 @@ LoadIQ_KaynakKod/
 ├── data/raw/                  # 8 resmi girdi veri seti (değiştirilmez)
 ├── outputs/                   # Üretilen teslim dosyaları
 ├── docs/                      # İş kuralları spec + veri denetim raporu
-├── dashboard/                 # Tek dosyalık görsel panel (SPA)
-├── LoadIQ_Teknik_Rapor.pdf    # Teknik rapor
-├── LoadIQ_SRS.pdf             # Yazılım Gereksinim Spesifikasyonu
-└── LoadIQ_Sunum.pptx          # Sunum
+└── dashboard/                 # Tek dosyalık görsel panel (SPA)
 ```
+
+> **Not:** Teknik rapor, SRS ve sunum ayrı teslim kalemleridir; bu kaynak kod paketine dâhil edilmez (yalnızca çalışan kod, veri, testler ve dokümantasyon burada bulunur).
 
 ---
 
@@ -192,7 +191,7 @@ Bu komut: ham veriyi yükler → talep tahminini okur → taşıma planını ür
 python src/forecast.py
 ```
 
-**Görsel panel (dashboard):** `dashboard/LoadIQ_Dashboard.html` dosyasına çift tıklayın (tek dosya, kurulum gerektirmez) veya `start_dashboard.bat`.
+**Görsel panel (dashboard):** `dashboard/LoadIQ_Dashboard.html` dosyasına **çift tıklayın** — tek dosyadır, tüm veri gömülüdür, kendi kendine yeterlidir. Sunucu veya kurulum gerektirmez.
 
 ---
 
@@ -236,8 +235,8 @@ Yarışma şartnamesi, resmi Q&A ve duyurulardan derlenen **20 iş kuralının t
 
 | Doküman | İçerik |
 |---|---|
-| [`LoadIQ_Teknik_Rapor.pdf`](./LoadIQ_Teknik_Rapor.pdf) | Yöntem, sonuçlar, grafikler, mühendislik kararları |
-| [`LoadIQ_SRS.pdf`](./LoadIQ_SRS.pdf) | Yazılım Gereksinim Spesifikasyonu (iş kuralları, FR/NFR, veri sözlüğü, mimari) |
+| `LoadIQ_Teknik_Rapor.pdf` | Yöntem, sonuçlar, grafikler, mühendislik kararları *(ayrı teslim kalemi)* |
+| `LoadIQ_SRS.pdf` | Yazılım Gereksinim Spesifikasyonu *(ayrı teslim kalemi)* |
 | [`docs/is_kurallari_spec.md`](./docs/is_kurallari_spec.md) | Tüm iş kurallarının tek kaynağı |
 | [`docs/veri_denetim_raporu.md`](./docs/veri_denetim_raporu.md) | Veri setlerindeki tutarsızlıklar ve çözümleri |
 | [`docs/sistem_tasarimi_ve_uygulama_plani.md`](./docs/sistem_tasarimi_ve_uygulama_plani.md) | Mimari tasarım ve uygulama yol haritası |
