@@ -6,140 +6,315 @@
 <title>LoadIQ — Lojistik Optimizasyon Panosu</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-  :root{
-    --navy:#0B2447; --navy2:#132F52; --teal:#1BA6A0; --cyan:#2BB3D9;
-    --ice:#A5D7E8; --ink:#1B2733; --gray:#7A8A99; --gold:#E9B949;
-    --card:#122b4e; --bg:#0a1c33; --line:#1e3a5f; --ok:#22c55e;
-  }
-  *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);color:#e8f0f8;padding:26px;line-height:1.5;}
-  .wrap{max-width:1180px;margin:0 auto;}
-  header{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px;border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:24px;}
-  .brand{font-size:34px;font-weight:800;color:#fff;letter-spacing:.5px;}
-  .brand span{color:var(--teal);}
-  .sub{color:var(--ice);font-size:14px;margin-top:2px;}
-  .badge{background:var(--teal);color:#04222b;font-weight:700;font-size:12px;padding:5px 12px;border-radius:20px;display:inline-block;}
-  .tag{color:var(--gold);font-weight:700;font-size:14px;}
-  .grid{display:grid;gap:16px;}
-  .kpis{grid-template-columns:repeat(6,1fr);margin-bottom:24px;}
-  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 14px;}
-  .kpi .v{font-size:23px;font-weight:800;color:#fff;}
-  .kpi .v.teal{color:var(--teal);} .kpi .v.gold{color:var(--gold);} .kpi .v.ok{color:var(--ok);}
-  .kpi .l{font-size:11.5px;color:var(--gray);margin-top:4px;text-transform:uppercase;letter-spacing:.4px;}
-  .row{grid-template-columns:1fr 1fr;margin-bottom:16px;}
-  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;}
-  .panel h3{font-size:15px;color:#fff;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
-  .panel h3::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--teal);}
-  canvas{max-height:260px;}
-  ul.chk{list-style:none;columns:2;column-gap:24px;}
-  ul.chk li{font-size:13px;padding:4px 0;color:#d4e2ef;}
-  ul.chk li::before{content:"✓";color:var(--ok);font-weight:800;margin-right:8px;}
-  .story{grid-template-columns:repeat(3,1fr);}
-  .story .panel .big{font-size:17px;font-weight:800;color:var(--teal);}
-  .story .panel p{font-size:12.5px;color:var(--gray);margin-top:6px;}
-  .foot{text-align:center;color:var(--gray);font-size:12px;margin-top:26px;border-top:1px solid var(--line);padding-top:16px;}
-  .banner{background:linear-gradient(90deg,var(--navy2),var(--card));border:1px solid var(--teal);border-radius:14px;padding:14px 20px;margin-bottom:24px;font-size:14px;color:#fff;}
-  .banner b{color:var(--teal);}
-  @media(max-width:900px){.kpis{grid-template-columns:repeat(3,1fr);}.row,.story{grid-template-columns:1fr;}ul.chk{columns:1;}}
+:root{
+  --bg1:#070f1e; --bg2:#0c1a30; --glow:#123a5a;
+  --card:rgba(255,255,255,.045); --brd:rgba(255,255,255,.09); --brd2:rgba(255,255,255,.14);
+  --txt:#eaf3fc; --mut:#8296ae;
+  --teal:#22d3c4; --cyan:#3db6ea; --ice:#a8e0f2; --gold:#f4c651; --ok:#2fe08a; --red:#ff6b52;
+  --grad:linear-gradient(135deg,#22d3c4 0%,#3db6ea 100%);
+  --gradsoft:linear-gradient(135deg,rgba(34,211,196,.18),rgba(61,182,234,.18));
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'Inter','Segoe UI',system-ui,Arial,sans-serif;color:var(--txt);display:flex;min-height:100vh;
+  background:radial-gradient(1200px 700px at 78% -10%,#123a5a 0%,transparent 55%),radial-gradient(900px 600px at -5% 110%,#0f2f4a 0%,transparent 50%),linear-gradient(160deg,#070f1e,#0b1830);
+  background-attachment:fixed;-webkit-font-smoothing:antialiased;}
+body.light{--bg1:#eef3f9;--bg2:#fff;--card:rgba(20,45,80,.04);--brd:rgba(20,45,80,.1);--brd2:rgba(20,45,80,.16);--txt:#132234;--mut:#5b7089;--glow:#cfe0f0;
+  background:radial-gradient(1000px 600px at 80% -10%,#dcedfb 0%,transparent 55%),linear-gradient(160deg,#f2f6fb,#e8eff7);}
+a{color:inherit;text-decoration:none;}
+::-webkit-scrollbar{width:9px;height:9px;} ::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:6px;}
+
+/* SIDEBAR */
+.side{width:244px;position:fixed;inset:0 auto 0 0;padding:24px 15px;display:flex;flex-direction:column;gap:5px;z-index:20;
+  background:linear-gradient(180deg,rgba(12,26,48,.72),rgba(8,18,34,.72));backdrop-filter:blur(16px);border-right:1px solid var(--brd);}
+.logo{font-size:27px;font-weight:800;letter-spacing:-.5px;padding:2px 10px 0;}
+.logo b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.logo small{display:block;font-size:10px;color:var(--mut);font-weight:600;letter-spacing:1.2px;margin-top:3px;text-transform:uppercase;}
+.nav{margin-top:22px;display:flex;flex-direction:column;gap:4px;}
+.nav a{position:relative;display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:12px;color:var(--mut);font-size:13.5px;font-weight:600;cursor:pointer;transition:.2s cubic-bezier(.4,0,.2,1);}
+.nav a .ic{width:20px;text-align:center;font-size:15px;opacity:.9;}
+.nav a:hover{background:var(--card);color:var(--txt);transform:translateX(2px);}
+.nav a.on{background:var(--grad);color:#04212b;box-shadow:0 8px 24px -8px rgba(34,211,196,.6);}
+.nav a.on .ic{opacity:1;}
+.side .sp{margin-top:auto;}
+.themebtn{background:var(--card);border:1px solid var(--brd);color:var(--mut);border-radius:11px;padding:10px;font-size:12px;cursor:pointer;font-weight:600;width:100%;transition:.2s;}
+.themebtn:hover{border-color:var(--teal);color:var(--txt);}
+.side .cred{font-size:10px;color:var(--mut);padding:12px 6px 0;line-height:1.6;}
+
+/* MAIN */
+main{margin-left:244px;flex:1;padding:30px 34px 50px;max-width:1280px;}
+.head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:22px;flex-wrap:wrap;gap:12px;}
+.head h1{font-size:27px;font-weight:800;letter-spacing:-.6px;}
+.head .desc{color:var(--mut);font-size:13.5px;margin-top:5px;}
+.pill{background:var(--gradsoft);border:1px solid rgba(34,211,196,.35);color:var(--teal);font-weight:700;font-size:11.5px;padding:6px 14px;border-radius:22px;letter-spacing:.3px;}
+
+.view{display:none;} .view.on{display:block;}
+.view.on>*{animation:rise .5s cubic-bezier(.2,.7,.2,1) backwards;}
+.view.on>*:nth-child(2){animation-delay:.05s;} .view.on>*:nth-child(3){animation-delay:.1s;}
+.view.on>*:nth-child(4){animation-delay:.15s;} .view.on>*:nth-child(5){animation-delay:.2s;}
+@keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+
+.grid{display:grid;gap:16px;} .g6{grid-template-columns:repeat(6,1fr);} .g4{grid-template-columns:repeat(4,1fr);}
+.g3{grid-template-columns:repeat(3,1fr);} .g2{grid-template-columns:1fr 1fr;}
+
+/* HERO */
+.hero{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;margin-bottom:18px;}
+.hero-main{background:var(--card);border:1px solid var(--brd);border-radius:20px;padding:26px 28px;position:relative;overflow:hidden;backdrop-filter:blur(12px);}
+.hero-main::before{content:"";position:absolute;top:-40%;right:-15%;width:340px;height:340px;background:radial-gradient(circle,rgba(34,211,196,.22),transparent 65%);pointer-events:none;}
+.hero-main .lab{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;}
+.hero-main .big{font-size:52px;font-weight:800;letter-spacing:-2px;margin:6px 0 4px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.hero-main .sub{color:var(--mut);font-size:14px;}
+.hero-main .save{display:inline-flex;align-items:center;gap:7px;margin-top:16px;background:rgba(47,224,138,.13);border:1px solid rgba(47,224,138,.35);color:var(--ok);font-weight:700;font-size:13px;padding:7px 14px;border-radius:20px;}
+.hero-side{display:grid;grid-template-rows:1fr 1fr;gap:16px;}
+.ringcard{background:var(--card);border:1px solid var(--brd);border-radius:20px;padding:18px 20px;display:flex;align-items:center;gap:18px;backdrop-filter:blur(12px);}
+.ringcard .txt .n{font-size:22px;font-weight:800;} .ringcard .txt .l{font-size:12px;color:var(--mut);}
+
+.kpi{background:var(--card);border:1px solid var(--brd);border-radius:16px;padding:17px 16px;backdrop-filter:blur(10px);transition:.25s cubic-bezier(.2,.7,.2,1);position:relative;overflow:hidden;}
+.kpi:hover{transform:translateY(-4px);border-color:var(--brd2);box-shadow:0 16px 34px -14px rgba(34,211,196,.35);}
+.kpi .chip{width:32px;height:32px;border-radius:10px;background:var(--gradsoft);display:flex;align-items:center;justify-content:center;font-size:15px;margin-bottom:11px;}
+.kpi .v{font-size:22px;font-weight:800;letter-spacing:-.5px;} .kpi .v.t{color:var(--teal);} .kpi .v.g{color:var(--gold);} .kpi .v.o{color:var(--ok);}
+.kpi .l{font-size:10.5px;color:var(--mut);margin-top:5px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+
+.card{background:var(--card);border:1px solid var(--brd);border-radius:18px;padding:20px 22px;margin-bottom:16px;backdrop-filter:blur(10px);transition:.25s;}
+.card:hover{border-color:var(--brd2);}
+.card h3{font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:10px;letter-spacing:-.2px;}
+.card h3::before{content:"";width:4px;height:16px;border-radius:3px;background:var(--grad);}
+canvas{max-height:255px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--brd);}
+tbody tr{transition:.15s;} tbody tr:hover{background:var(--card);}
+th{color:var(--mut);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
+.bar{height:7px;background:rgba(255,255,255,.07);border-radius:5px;overflow:hidden;}
+.bar>i{display:block;height:100%;background:var(--grad);border-radius:5px;box-shadow:0 0 8px rgba(34,211,196,.5);}
+.tag{display:inline-block;background:var(--card);border:1px solid var(--brd);border-radius:7px;padding:2px 9px;font-size:11px;color:var(--mut);font-weight:600;}
+.yasak{color:var(--red);font-weight:700;}
+.chk{list-style:none;} .chk li{font-size:13px;padding:6px 0;color:var(--txt);display:flex;align-items:center;gap:10px;}
+.chk li::before{content:"✓";display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:6px;background:rgba(47,224,138,.15);color:var(--ok);font-weight:800;font-size:11px;flex:none;}
+.story{background:var(--card);border:1px solid var(--brd);border-radius:18px;padding:20px;backdrop-filter:blur(10px);transition:.25s;}
+.story:hover{transform:translateY(-4px);border-color:var(--brd2);box-shadow:0 16px 34px -16px rgba(34,211,196,.3);}
+.story .ic{width:40px;height:40px;border-radius:12px;background:var(--gradsoft);display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:12px;}
+.story h4{font-size:15px;margin-bottom:6px;font-weight:700;} .story p{font-size:12.5px;color:var(--mut);line-height:1.6;}
+.legend{display:flex;gap:22px;justify-content:center;margin-top:12px;font-size:12px;color:var(--mut);flex-wrap:wrap;}
+.node{cursor:pointer;transition:.2s;} .node:hover circle{filter:brightness(1.25);}
+@media(max-width:1050px){.side{width:66px;padding:20px 9px;}.logo small,.nav a span:not(.ic),.side .cred{display:none;}.nav a{justify-content:center;}main{margin-left:66px;padding:20px;}.hero,.g6,.g4{grid-template-columns:1fr 1fr;}.g3,.g2{grid-template-columns:1fr;}.hero-main .big{font-size:40px;}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div>
-      <div class="brand">Load<span>IQ</span></div>
-      <div class="sub">Yapay Zeka Destekli Lojistik Anahat Optimizasyonu · Gelişmiş Çözüm</div>
+<h2 style="position:absolute;left:-9999px;">LoadIQ lojistik optimizasyon panosu — feasible toplam maliyet 22,11 milyon TL, sıfır uygunluk ihlali, 32/32 test.</h2>
+<aside class="side">
+  <div class="logo">Load<b>IQ</b><small>TEKNOFEST 2026 · NASİP</small></div>
+  <nav class="nav" id="nav">
+    <a data-v="ov" class="on"><span class="ic">◈</span><span>Genel Bakış</span></a>
+    <a data-v="map"><span class="ic">🗺</span><span>Ağ Haritası</span></a>
+    <a data-v="opt"><span class="ic">⚙</span><span>Optimizasyon</span></a>
+    <a data-v="fleet"><span class="ic">🚚</span><span>Filo</span></a>
+    <a data-v="tm"><span class="ic">🏭</span><span>Transfer Merkezleri</span></a>
+    <a data-v="fc"><span class="ic">📈</span><span>Talep Tahmini</span></a>
+    <a data-v="eng"><span class="ic">🛡</span><span>Mühendislik</span></a>
+  </nav>
+  <div class="sp"></div>
+  <button class="themebtn" id="theme">◐  Tema değiştir</button>
+  <div class="cred">Bağımsız checker ile doğrulanmış<br>feasible çözüm · v2.0</div>
+</aside>
+
+<main>
+  <!-- GENEL BAKIŞ -->
+  <section class="view on" id="ov">
+    <div class="head"><div><h1>Genel Bakış</h1><div class="desc">18 transfer merkezi · 289 aktif rota · dakika bazlı optimizasyon</div></div><span class="pill">● Checker: PASS</span></div>
+    <div class="hero">
+      <div class="hero-main">
+        <div class="lab">Toplam Plan Maliyeti (feasible)</div>
+        <div class="big" id="hbig">0</div>
+        <div class="sub">Araç maliyeti + SLA cezası · sıfır kısıt ihlali</div>
+        <span class="save">▼ Başlangıca göre −8,09M TL (−%25,9)</span>
+      </div>
+      <div class="hero-side">
+        <div class="ringcard"><canvas id="r1" width="72" height="72"></canvas><div class="txt"><div class="n o">%100</div><div class="l">Feasible · 0 uygunluk ihlali</div></div></div>
+        <div class="ringcard"><canvas id="r2" width="72" height="72"></canvas><div class="txt"><div class="n t">32/32</div><div class="l">Birim test · Checker PASS</div></div></div>
+      </div>
     </div>
-    <div style="text-align:right;">
-      <span class="badge">TEKNOFEST 2026</span>
-      <div class="tag" style="margin-top:8px;">Takım NASİP</div>
+    <div class="grid g4" style="margin-bottom:16px;">
+      <div class="kpi"><div class="chip">💰</div><div class="v" id="k2"></div><div class="l">Araç Maliyeti</div></div>
+      <div class="kpi"><div class="chip">⏱</div><div class="v" id="k3"></div><div class="l">SLA Cezası</div></div>
+      <div class="kpi"><div class="chip">🚚</div><div class="v" id="k4"></div><div class="l">Araç Seferi</div></div>
+      <div class="kpi"><div class="chip">📦</div><div class="v" id="k5"></div><div class="l">Taşınan Desi</div></div>
     </div>
-  </header>
-
-  <div class="banner">
-    <b>Feasible çözüm:</b> Konsolidasyon + feasibility düzeltmesiyle toplam maliyet
-    <b>29,84M → 22,11M TL (−%25,9)</b>. Sıfır uygunluk ihlali, checker PASS, 32/32 test.
-  </div>
-
-  <div class="grid kpis">
-    <div class="kpi"><div class="v teal" id="k_toplam"></div><div class="l">Toplam Maliyet</div></div>
-    <div class="kpi"><div class="v" id="k_arac"></div><div class="l">Araç Maliyeti</div></div>
-    <div class="kpi"><div class="v" id="k_sla"></div><div class="l">SLA Cezası (%<span id="k_slao"></span>)</div></div>
-    <div class="kpi"><div class="v" id="k_aracsay"></div><div class="l">Araç Seferi</div></div>
-    <div class="kpi"><div class="v ok">0</div><div class="l">Uygunluk İhlali</div></div>
-    <div class="kpi"><div class="v gold">32/32</div><div class="l">Test · Checker PASS</div></div>
-  </div>
-
-  <div class="grid row">
-    <div class="panel"><h3>Maliyet Düşüşü (Milyon TL)</h3><canvas id="c_cost"></canvas></div>
-    <div class="panel"><h3>Araç Tipi Dağılımı</h3><canvas id="c_dist"></canvas></div>
-  </div>
-
-  <div class="grid row">
-    <div class="panel"><h3>Spot Araç Doluluk Dağılımı</h3><canvas id="c_fill"></canvas></div>
-    <div class="panel"><h3>Günlük SLA Cezası (TL)</h3><canvas id="c_sla"></canvas></div>
-  </div>
-
-  <div class="grid row">
-    <div class="panel">
-      <h3>Problem & Kapsam</h3>
-      <ul class="chk">
-        <li>18 transfer merkezi · 289 aktif rota</li>
-        <li>Günde 2 saat dilimi (09:00 / 17:00)</li>
-        <li>Talep tahmini: <b id="t_tahmin"></b> satır</li>
-        <li>Taşınan toplam: <b id="t_desi"></b> desi</li>
-        <li>Kiralık filo: <b id="t_kir"></b> araç</li>
-        <li>Spot filo: <b id="t_spot"></b> araç</li>
-      </ul>
+    <div class="grid g2">
+      <div class="card"><h3>Maliyet Düşüşü (Milyon TL)</h3><canvas id="cCost"></canvas></div>
+      <div class="card"><h3>Araç Tipi Dağılımı</h3><canvas id="cDist"></canvas></div>
     </div>
-    <div class="panel">
-      <h3>Kural Uygunluğu (20/20)</h3>
-      <ul class="chk">
-        <li>Format şablonla birebir</li>
-        <li>09:00 / 17:00 ayrı satır</li>
-        <li>Dakika bazlı, yukarı yuvarlama</li>
-        <li>Tır kapasitesi (kiralık dahil)</li>
-        <li>Elleçleme (gece yarısı oransal)</li>
-        <li>SLA: 1 dk → 1 saat ceza</li>
-        <li>Çıkış ≥ talep hazırlık (feasible)</li>
-        <li>Boş araç gönderilmiyor</li>
-      </ul>
+  </section>
+
+  <!-- AĞ HARİTASI -->
+  <section class="view" id="map">
+    <div class="head"><div><h1>Türkiye Lojistik Ağı</h1><div class="desc">Düğüm boyutu = taşınan hacim · çizgiler = en yoğun 8 rota</div></div><span class="pill">18 transfer merkezi</span></div>
+    <div class="card" style="padding:14px;"><svg id="netmap" viewBox="0 0 960 320" style="width:100%;height:auto;background:radial-gradient(ellipse at 42% 34%,#0f2b40 0%,#081826 70%);border-radius:14px;"></svg>
+      <div class="legend"><span>◉ <b style="color:var(--teal)">Büyük düğüm</b> = yüksek hacim</span><span>━ En yoğun rotalar</span><span>En büyük merkez: <b style="color:var(--teal)">Yalova</b> · 2,49M desi</span></div>
     </div>
-  </div>
+    <div class="grid g4">
+      <div class="kpi"><div class="chip">🏭</div><div class="v t">18</div><div class="l">Transfer Merkezi</div></div>
+      <div class="kpi"><div class="chip">🔀</div><div class="v">289</div><div class="l">Aktif Rota</div></div>
+      <div class="kpi"><div class="chip">📦</div><div class="v" id="mv1"></div><div class="l">Toplam Taşınan Desi</div></div>
+      <div class="kpi"><div class="chip">🚫</div><div class="v g">8</div><div class="l">Tır-Yasak Merkez</div></div>
+    </div>
+  </section>
 
-  <div class="grid story">
-    <div class="panel"><div class="big">Boş Araç Bug'ı</div><p>27 spot araç yüksüz sefer yapıp ~450K TL ekliyordu. Tespit edildi, temizlendi, checker'a kural eklendi.</p></div>
-    <div class="panel"><div class="big">Milk-run Konsolidasyonu</div><p>Aynı çıkıştan farklı varışlara giden düşük-dolu araçlar tek rotada birleştirildi — 215 birleşme, milyonlarca TL tasarruf.</p></div>
-    <div class="panel"><div class="big">Feasibility Düzeltmesi</div><p>Kiralık, 17:00 yükünü 09:00'da sevk ediyordu (%11,6 talep). Yakalandı, düzeltildi — plan artık gerçekten uygulanabilir.</p></div>
-  </div>
+  <!-- OPTİMİZASYON -->
+  <section class="view" id="opt">
+    <div class="head"><div><h1>Optimizasyon Motoru</h1><div class="desc">İki aşamalı greedy + konsolidasyon (saat birleştirme, milk-run) + feasibility</div></div></div>
+    <div class="grid g2">
+      <div class="card"><h3>Kademeli Maliyet Düşüşü</h3><table><thead><tr><th>Aşama</th><th class="num">Toplam (TL)</th><th class="num">Kazanç</th></tr></thead><tbody id="tStage"></tbody></table></div>
+      <div class="card"><h3>Spot Araç Doluluğu</h3><canvas id="cFill"></canvas></div>
+    </div>
+    <div class="card"><h3>Günlük SLA Cezası (TL)</h3><canvas id="cSla"></canvas></div>
+    <div class="card"><h3>En Fazla SLA Cezası Üreten Rotalar</h3><table><thead><tr><th>Rota</th><th class="num">SLA Cezası (TL)</th></tr></thead><tbody id="tSla"></tbody></table></div>
+  </section>
 
-  <div class="foot">LoadIQ · Takım NASİP · TEKNOFEST 2026 — Hepsiburada Lojistik Optimizasyonu · Bağımsız checker ile doğrulanmış feasible çözüm</div>
-</div>
+  <!-- FİLO -->
+  <section class="view" id="fleet">
+    <div class="head"><div><h1>Filo Analizi</h1><div class="desc">Zorunlu kiralık filo + esnek spot filo</div></div></div>
+    <div class="grid g4" style="margin-bottom:16px;">
+      <div class="kpi"><div class="chip">📋</div><div class="v" id="f1"></div><div class="l">Kiralık Araç</div></div>
+      <div class="kpi"><div class="chip">⚡</div><div class="v" id="f2"></div><div class="l">Spot Araç</div></div>
+      <div class="kpi"><div class="chip">🛣</div><div class="v" id="f3"></div><div class="l">Toplam Sefer</div></div>
+      <div class="kpi"><div class="chip">📦</div><div class="v" id="f4"></div><div class="l">Taşınan Desi</div></div>
+    </div>
+    <div class="grid g2">
+      <div class="card"><h3>Araç Türü Bazında</h3><table><thead><tr><th>Tür</th><th>Tip</th><th class="num">Adet</th><th>Ort. Doluluk</th></tr></thead><tbody id="tFleet"></tbody></table></div>
+      <div class="card"><h3>En Yoğun Rotalar (desi)</h3><table><thead><tr><th>Rota</th><th class="num">Toplam Desi</th></tr></thead><tbody id="tRota"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- TRANSFER MERKEZLERİ -->
+  <section class="view" id="tm">
+    <div class="head"><div><h1>Transfer Merkezleri</h1><div class="desc">18 merkez · elleçleme kapasitesi & tır kotası</div></div></div>
+    <div class="card"><h3>Merkez Kapasiteleri</h3><table><thead><tr><th>Transfer Merkezi</th><th class="num">Günlük Elleçleme (desi)</th><th class="num">Tır Kotası</th><th>Durum</th></tr></thead><tbody id="tTm"></tbody></table></div>
+  </section>
+
+  <!-- TAHMİN -->
+  <section class="view" id="fc">
+    <div class="head"><div><h1>Talep Tahmini</h1><div class="desc">İki parçalı P×E modeli · leakage'sız backtest</div></div></div>
+    <div class="grid g4" style="margin-bottom:16px;">
+      <div class="kpi"><div class="chip">📊</div><div class="v">4.046</div><div class="l">Tahmin Satırı</div></div>
+      <div class="kpi"><div class="chip">🔀</div><div class="v">289</div><div class="l">Aktif Rota</div></div>
+      <div class="kpi"><div class="chip">🎯</div><div class="v">~%24,4</div><div class="l">WAPE (P×E, n=8)</div></div>
+      <div class="kpi"><div class="chip">✓</div><div class="v o" style="font-size:16px;">Leakage yok</div><div class="l">Dürüst Backtest</div></div>
+    </div>
+    <div class="grid g2">
+      <div class="card"><h3>Model Karşılaştırması — WAPE % (3 hafta)</h3><table><thead><tr><th>Model</th><th class="num">1-7 Haz</th><th class="num">8-14 Haz</th><th class="num">15-21 Haz</th><th class="num">Ort.</th></tr></thead><tbody>
+        <tr><td><b>P×E (n=8)&nbsp;✓</b></td><td class="num">30,25</td><td class="num">21,94</td><td class="num">21,09</td><td class="num"><b style="color:var(--ok)">24,43</b></td></tr>
+        <tr><td>LightGBM (ML)</td><td class="num">37,50</td><td class="num">31,47</td><td class="num">28,58</td><td class="num">32,52</td></tr>
+      </tbody></table><p style="font-size:12px;color:var(--mut);margin-top:13px;">Alan-özel P×E modeli, genel amaçlı LightGBM'i 8 puan geride bıraktı — karar kanıta dayalı.</p></div>
+      <div class="card"><h3>Yöntemin Gücü</h3><ul class="chk">
+        <li>Leakage yok: sadece geçmiş veri kullanılır</li><li>Tatil/anomali filtresi (Kurban Bayramı)</li>
+        <li>09:00 & 17:00 ayrı tahmin</li><li>Korunum kontrolü: sıfır desi kaybı</li>
+        <li>n=8: cost-accuracy dengesiyle seçildi</li></ul></div>
+    </div>
+  </section>
+
+  <!-- MÜHENDİSLİK -->
+  <section class="view" id="eng">
+    <div class="head"><div><h1>Mühendislik Titizliği</h1><div class="desc">Bağımsız doğrulayıcı + bulunan ve giderilen hatalar</div></div></div>
+    <div class="grid g3" style="margin-bottom:16px;">
+      <div class="story"><div class="ic">🐞</div><h4>Boş Araç Bug'ı</h4><p>27 spot araç yüksüz sefer yapıp ~450K TL ekliyordu. Tespit edildi, temizlendi, checker'a kural eklendi.</p></div>
+      <div class="story"><div class="ic">🔗</div><h4>Milk-run Konsolidasyonu</h4><p>Aynı çıkıştan farklı varışlara giden düşük-dolu araçlar tek rotada birleştirildi — 215 birleşme.</p></div>
+      <div class="story"><div class="ic">⏱</div><h4>Feasibility Düzeltmesi</h4><p>Kiralık, 17:00 yükünü 09:00'da sevk ediyordu (%11,6 talep). Yakalandı, düzeltildi — plan artık uygulanabilir.</p></div>
+    </div>
+    <div class="grid g2">
+      <div class="card"><h3>Bağımsız Checker — 12 Kontrol</h3><ul class="chk">
+        <li>ID format · talep izlenebilirliği</li><li>Tır kapasitesi (kiralık dahil)</li>
+        <li>Elleçleme kapasitesi (gece yarısı oransal)</li><li>Araç kapasitesi · kiralık filo eksiksizliği</li>
+        <li>SLA cezası · maliyet (yeniden hesap)</li><li>Milk-run tutarlılık · çıkış-hazırlık</li></ul></div>
+      <div class="card"><h3>Kural Uygunluğu (20/20)</h3><ul class="chk">
+        <li>Format şablonla birebir — elenme riski yok</li><li>Dakika bazlı, yukarı yuvarlama</li>
+        <li>SLA: 1 dk gecikme → 1 saat ceza</li><li>Boş araç gönderilmiyor/döndürülmüyor</li>
+        <li>Reproducibility: sabit yol yok, tek komut</li></ul></div>
+    </div>
+  </section>
+</main>
 
 <script>
-const D={"toplam":22106411,"arac":20939526,"sla":1166885,"plan_satir":3725,"benzersiz_arac":1697,
-"tahmin_satir":4046,"sla_oran":5.3,"toplam_desi":6613772,"kiralik_arac":98,"spot_arac":1599,
-"arac_dagilimi":{"Kamyon (Kiralık)":28,"Tır (Kiralık)":70,"Hafif Kamyon (Spot)":82,"Kamyon (Spot)":294,"Kamyonet (Spot)":1411,"Tır (Spot)":19},
+const D={"toplam":22106411,"arac":20939526,"sla":1166885,"benzersiz_arac":1697,"toplam_desi":6613772,"kiralik_arac":98,"spot_arac":1599,
 "doluluk":[541,289,307,462],
-"sla_gun":{"29 Haz":0,"30 Haz":46232,"01 Tem":122173,"02 Tem":423930,"03 Tem":330611,"04 Tem":217327,"05 Tem":26613,"06 Tem":0}};
-const tl=n=>n.toLocaleString('tr-TR');
-const M=n=>(n/1e6).toFixed(2)+"M";
-document.getElementById('k_toplam').textContent=M(D.toplam)+" ₺";
-document.getElementById('k_arac').textContent=M(D.arac)+" ₺";
-document.getElementById('k_sla').textContent=M(D.sla)+" ₺";
-document.getElementById('k_slao').textContent=D.sla_oran;
-document.getElementById('k_aracsay').textContent=tl(D.benzersiz_arac);
-document.getElementById('t_tahmin').textContent=tl(D.tahmin_satir);
-document.getElementById('t_desi').textContent=tl(D.toplam_desi);
-document.getElementById('t_kir').textContent=D.kiralik_arac;
-document.getElementById('t_spot').textContent=tl(D.spot_arac);
-const NAVY='#0B2447',TEAL='#1BA6A0',CYAN='#2BB3D9',ICE='#A5D7E8',GOLD='#E9B949',GRAY='#7A8A99';
-Chart.defaults.color='#9fb3c8'; Chart.defaults.font.family="Segoe UI";
-const grid={color:'#1e3a5f'};
-new Chart(c_cost,{type:'bar',data:{labels:['Başlangıç','Saat birleş.','Milk-run+Feas.'],datasets:[{data:[29.84,24.08,22.11],backgroundColor:[GRAY,CYAN,TEAL],borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{y:{grid,beginAtZero:true},x:{grid:{display:false}}}}});
-new Chart(c_dist,{type:'doughnut',data:{labels:Object.keys(D.arac_dagilimi),datasets:[{data:Object.values(D.arac_dagilimi),backgroundColor:[NAVY,'#2a4a7a',TEAL,CYAN,ICE,GOLD],borderColor:'#122b4e',borderWidth:2}]},options:{plugins:{legend:{position:'right',labels:{font:{size:10.5},boxWidth:12}}},cutout:'55%'}});
-new Chart(c_fill,{type:'bar',data:{labels:['%0–25','%25–50','%50–75','%75–100'],datasets:[{data:D.doluluk,backgroundColor:TEAL,borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{y:{grid,beginAtZero:true},x:{grid:{display:false}}}}});
-new Chart(c_sla,{type:'bar',data:{labels:Object.keys(D.sla_gun),datasets:[{data:Object.values(D.sla_gun),backgroundColor:GOLD,borderRadius:5}]},options:{plugins:{legend:{display:false}},scales:{y:{grid,beginAtZero:true},x:{grid:{display:false}}}}});
+"sla_gun":{"29 Haz":0,"30 Haz":46232,"01 Tem":122173,"02 Tem":423930,"03 Tem":330611,"04 Tem":217327,"05 Tem":26613,"06 Tem":0},
+"fleet":[{"tip":"Kiralık","tur":"Tır","adet":70,"dol":7.9},{"tip":"Kiralık","tur":"Kamyon","adet":28,"dol":26.9},{"tip":"Spot","tur":"Kamyonet","adet":1204,"dol":36.0},{"tip":"Spot","tur":"Kamyon","adet":294,"dol":87.7},{"tip":"Spot","tur":"Hafif Kamyon","adet":82,"dol":88.2},{"tip":"Spot","tur":"Tır","adet":19,"dol":85.1}],
+"tms":[{"tm":"İstanbul","e":394786,"t":10},{"tm":"Yalova","e":513171,"t":4},{"tm":"Kocaeli","e":89262,"t":12},{"tm":"Eskişehir","e":296080,"t":10},{"tm":"Manisa","e":301978,"t":4},{"tm":"Tekirdağ","e":297576,"t":2},{"tm":"Balıkesir","e":239855,"t":1},{"tm":"Mersin","e":124922,"t":11},{"tm":"Şanlıurfa","e":101147,"t":5},{"tm":"Bilecik","e":164023,"t":0},{"tm":"Sivas","e":86518,"t":0},{"tm":"Isparta","e":76424,"t":0},{"tm":"Kütahya","e":64732,"t":0},{"tm":"Mardin","e":58033,"t":5},{"tm":"Erzincan","e":58673,"t":5},{"tm":"Karaman","e":43830,"t":0},{"tm":"Zonguldak","e":38989,"t":0},{"tm":"Denizli","e":36869,"t":0}],
+"top_rota":[{"r":"Yalova→Tekirdağ","d":213111},{"r":"Yalova→Manisa","d":212618},{"r":"Yalova→Eskişehir","d":207512},{"r":"Yalova→İstanbul","d":201812},{"r":"İstanbul→Yalova","d":194133},{"r":"Yalova→Balıkesir","d":188407},{"r":"İstanbul→Manisa","d":171078},{"r":"İstanbul→Eskişehir","d":153343},{"r":"İstanbul→Balıkesir","d":147437},{"r":"İstanbul→Tekirdağ","d":133037}],
+"top_sla":[{"r":"Erzincan→Mardin","s":46249},{"r":"Mardin→Eskişehir","s":42333},{"r":"Mardin→Mersin","s":38262},{"r":"Karaman→Zonguldak","s":34424},{"r":"Mardin→Manisa","s":34218},{"r":"Mardin→Tekirdağ","s":33965},{"r":"Zonguldak→Mersin","s":33523},{"r":"Mardin→Balıkesir","s":29685},{"r":"Mardin→İstanbul","s":28854},{"r":"Sivas→Denizli","s":24262}]};
+const NODES=[{tm:"İstanbul",x:178,y:86,vol:1874656},{tm:"Yalova",x:191,y:101,vol:2492096},{tm:"Kocaeli",x:222,y:95,vol:314472},{tm:"Eskişehir",x:249,y:139,vol:1282331},{tm:"Manisa",x:106,y:189,vol:1298840},{tm:"Tekirdağ",x:110,y:86,vol:1316236},{tm:"Balıkesir",x:127,y:145,vol:1015478},{tm:"Mersin",x:440,y:268,vol:525301},{tm:"Şanlıurfa",x:632,y:252,vol:468064},{tm:"Bilecik",x:224,y:123,vol:671561},{tm:"Sivas",x:550,y:139,vol:379071},{tm:"Isparta",x:251,y:226,vol:280449},{tm:"Kütahya",x:224,y:154,vol:286997},{tm:"Mardin",x:723,y:246,vol:253977},{tm:"Erzincan",x:665,y:139,vol:256516},{tm:"Karaman",x:374,y:252,vol:192089},{tm:"Zonguldak",x:308,y:66,vol:179035},{tm:"Denizli",x:183,y:225,vol:140376}];
+const CO={};NODES.forEach(n=>CO[n.tm]=n);
+const tl=n=>Math.round(n).toLocaleString('tr-TR'),M=n=>(n/1e6).toFixed(2)+"M ₺";
+k2.textContent=M(D.arac);k3.textContent=M(D.sla);k4.textContent=tl(D.benzersiz_arac);k5.textContent=tl(D.toplam_desi);
+f1.textContent=D.kiralik_arac;f2.textContent=tl(D.spot_arac);f3.textContent=tl(D.benzersiz_arac);f4.textContent=tl(D.toplam_desi);mv1.textContent=tl(D.toplam_desi);
+tStage.innerHTML=[["Başlangıç",29.84],["Saat birleştirme",24.08],["Milk-run + feasibility",22.11]].map((s,i,a)=>`<tr><td>${s[0]}</td><td class="num">${s[1].toFixed(2)}M</td><td class="num" style="color:var(--ok)">${i?'−'+(a[i-1][1]-s[1]).toFixed(2)+'M':'—'}</td></tr>`).join('');
+tSla.innerHTML=D.top_sla.map(x=>`<tr><td>${x.r}</td><td class="num">${tl(x.s)}</td></tr>`).join('');
+tFleet.innerHTML=D.fleet.map(x=>`<tr><td>${x.tur}</td><td><span class="tag">${x.tip}</span></td><td class="num">${x.adet}</td><td><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;"><span style="font-variant-numeric:tabular-nums;">%${x.dol}</span><div class="bar" style="width:60px;"><i style="width:${x.dol}%"></i></div></div></td></tr>`).join('');
+tRota.innerHTML=D.top_rota.map(x=>`<tr><td>${x.r}</td><td class="num">${tl(x.d)}</td></tr>`).join('');
+const maxE=Math.max(...D.tms.map(t=>t.e));
+tTm.innerHTML=D.tms.map(t=>`<tr><td>${t.tm}</td><td class="num">${tl(t.e)}<div class="bar" style="margin-top:5px;width:130px;margin-left:auto;"><i style="width:${100*t.e/maxE}%"></i></div></td><td class="num">${t.t}</td><td>${t.t===0?'<span class="yasak">Tır yasak</span>':'<span style="color:var(--ok)">Aktif</span>'}</td></tr>`).join('');
+
+const TR="M40,38 L133,43 L290,68 L457,38 L596,81 L758,60 L850,76 L911,135 L892,211 L799,245 L688,258 L535,283 L457,266 L318,287 L248,279 L133,262 L96,249 L58,190 L72,140 L49,106 Z";
+function renderMap(){const svg=document.getElementById('netmap');if(!svg||svg.dataset.done)return;svg.dataset.done=1;
+  const maxV=Math.max(...NODES.map(n=>n.vol));
+  let d=`<defs>
+    <linearGradient id="trf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#154256"/><stop offset="1" stop-color="#0c2333"/></linearGradient>
+    <radialGradient id="ng" cx="38%" cy="35%"><stop offset="0" stop-color="#7ff6e8"/><stop offset="0.55" stop-color="#22d3c4"/><stop offset="1" stop-color="#0f8f8c"/></radialGradient>
+    <linearGradient id="rl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#22d3c4" stop-opacity="0"/><stop offset="0.5" stop-color="#5fe0ec" stop-opacity="0.95"/><stop offset="1" stop-color="#3db6ea" stop-opacity="0"/></linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>`;
+  // Türkiye silüeti
+  d+=`<path d="${TR}" fill="url(#trf)" stroke="#2b7286" stroke-width="1.4" opacity="0.92"/>`;
+  d+=`<path d="${TR}" fill="none" stroke="#3fe6d6" stroke-width="1" opacity="0.22"/>`;
+  // akan eğri rotalar
+  D.top_rota.slice(0,8).forEach((rt,i)=>{const[a,b]=rt.r.split('→');const A=CO[a],B=CO[b];if(!A||!B)return;
+    const mx=(A.x+B.x)/2,my=(A.y+B.y)/2,cx=mx-(B.y-A.y)*0.2,cy=my+(B.x-A.x)*0.2;
+    d+=`<path d="M${A.x},${A.y} Q${cx},${cy} ${B.x},${B.y}" fill="none" stroke="url(#rl)" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="5 11"><animate attributeName="stroke-dashoffset" values="16;0" dur="${1+i*.12}s" repeatCount="indefinite"/></path>`;});
+  // parlayan düğümler
+  NODES.forEach((n,i)=>{const r=6+Math.sqrt(n.vol/maxV)*19;
+    d+=`<g class="node">
+      <circle cx="${n.x}" cy="${n.y}" r="${r*2.1}" fill="#22d3c4" opacity="0.06"/>
+      <circle cx="${n.x}" cy="${n.y}" r="${r}" fill="url(#ng)" filter="url(#glow)"><title>${n.tm}: ${tl(n.vol)} desi</title><animate attributeName="r" values="${r};${(r+1.6).toFixed(1)};${r}" dur="${2.4+i*.12}s" repeatCount="indefinite"/></circle>
+      <circle cx="${(n.x-r*0.32).toFixed(1)}" cy="${(n.y-r*0.32).toFixed(1)}" r="${(r*0.28).toFixed(1)}" fill="#eafffb" opacity="0.55"/>
+      <text x="${n.x}" y="${(n.y-r-5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#dcecf7" font-family="Inter,Segoe UI" font-weight="600">${n.tm}</text>
+    </g>`;});
+  svg.innerHTML=d;}
+
+// gradient helper for charts
+function grad(ctx,c1,c2){const g=ctx.createLinearGradient(0,0,0,240);g.addColorStop(0,c1);g.addColorStop(1,c2);return g;}
+function ring(id,pct,col){const c=document.getElementById(id),x=c.getContext('2d'),R=30,cx=36,cy=36;
+  x.lineWidth=7;x.strokeStyle='rgba(255,255,255,.08)';x.beginPath();x.arc(cx,cy,R,0,7);x.stroke();
+  let p=0;(function a(){p+=pct/40;if(p>pct)p=pct;x.clearRect(0,0,72,72);
+    x.lineWidth=7;x.strokeStyle='rgba(255,255,255,.08)';x.beginPath();x.arc(cx,cy,R,0,Math.PI*2);x.stroke();
+    x.strokeStyle=col;x.lineCap='round';x.beginPath();x.arc(cx,cy,R,-Math.PI/2,-Math.PI/2+Math.PI*2*p/100);x.stroke();
+    if(p<pct)requestAnimationFrame(a);})();}
+
+function animate(el,to,fmt){let st=null;function step(t){if(!st)st=t;const p=Math.min((t-st)/1000,1),e=1-Math.pow(1-p,3);el.textContent=fmt(to*e);if(p<1)requestAnimationFrame(step);}requestAnimationFrame(step);}
+
+const nav=document.getElementById('nav');
+nav.addEventListener('click',e=>{const a=e.target.closest('a');if(!a)return;
+  nav.querySelectorAll('a').forEach(x=>x.classList.remove('on'));a.classList.add('on');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  const v=document.getElementById(a.dataset.v);v.classList.add('on');v.style.animation='none';v.offsetHeight;v.style.animation='';
+  window.scrollTo({top:0,behavior:'smooth'});if(a.dataset.v==='map')renderMap();});
+document.getElementById('theme').addEventListener('click',()=>document.body.classList.toggle('light'));
+
+function draw(){if(typeof Chart==='undefined')return setTimeout(draw,100);
+  const TEAL='#22d3c4',CY='#3db6ea',GR='#4a6076',GD='#f4c651',NV='#0b1830';
+  Chart.defaults.color='#8296ae';Chart.defaults.font.family='Inter,Segoe UI';
+  Chart.defaults.plugins.tooltip.backgroundColor='#0e1c30';Chart.defaults.plugins.tooltip.borderColor='#22d3c4';Chart.defaults.plugins.tooltip.borderWidth=1;Chart.defaults.plugins.tooltip.padding=10;Chart.defaults.plugins.tooltip.cornerRadius=8;
+  const grid={color:'rgba(255,255,255,.06)'},anim={duration:1100,easing:'easeOutQuart'};
+  const cc=cCost.getContext('2d');
+  new Chart(cCost,{type:'bar',data:{labels:['Başlangıç','Saat birleş.','Milk-run+Feas.'],datasets:[{data:[29.84,24.08,22.11],backgroundColor:[grad(cc,'#6a7f95','#3a4c60'),grad(cc,'#3db6ea','#1c6f9a'),grad(cc,'#22d3c4','#127a72')],borderRadius:8,borderSkipped:false}]},options:{animation:anim,plugins:{legend:{display:false}},scales:{y:{grid,beginAtZero:true},x:{grid:{display:false}}}}});
+  new Chart(cDist,{type:'doughnut',data:{labels:D.fleet.map(f=>f.tur+' ('+f.tip+')'),datasets:[{data:D.fleet.map(f=>f.adet),backgroundColor:['#0d3b66','#1c5a8f','#22d3c4','#3db6ea','#a8e0f2','#f4c651'],borderColor:NV,borderWidth:3,hoverOffset:8}]},options:{animation:{animateRotate:true,duration:1100},plugins:{legend:{position:'right',labels:{font:{size:10.5},boxWidth:11,padding:9}}},cutout:'62%'}});
+  const cf=cFill.getContext('2d');
+  new Chart(cFill,{type:'bar',data:{labels:['%0–25','%25–50','%50–75','%75–100'],datasets:[{data:D.doluluk,backgroundColor:grad(cf,'#22d3c4','#127a72'),borderRadius:8,borderSkipped:false}]},options:{animation:anim,plugins:{legend:{display:false}},scales:{y:{grid,beginAtZero:true},x:{grid:{display:false}}}}});
+  const csl=cSla.getContext('2d');
+  new Chart(cSla,{type:'bar',data:{labels:Object.keys(D.sla_gun),datasets:[{data:Object.values(D.sla_gun),backgroundColor:grad(csl,'#f4c651','#b8860b'),borderRadius:6,borderSkipped:false}]},options:{animation:anim,plugins:{legend:{display:false}},scales:{y:{grid,beginAtZero:true},x:{grid:{display:false}}}}});
+}
+animate(document.getElementById('hbig'),D.toplam,M);
+ring('r1',100,'#2fe08a');ring('r2',100,'#22d3c4');
+draw();renderMap();
 </script>
 </body>
 </html>
