@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.join(_ROOT, "config"))
 
 
 from data_loader import load_all
-from optimize import generate_plan
+from optimize import generate_plan, konsolide_saat, konsolide_milkrun
 from checker import run_all_checks
 
 
@@ -132,6 +132,17 @@ def run_pipeline() -> None:
         raise ValueError("generate_plan() boş bir taşıma planı döndürdü.")
 
     print(f"Taşıma planı üretildi: {len(plan_df)} satır.")
+
+    # Son-işlem: 09:00+17:00 Spot seferlerini konsolide et
+    print("\n[3b/6] Spot sefer konsolidasyonu...")
+    veri["talep_tahmin"] = talep_df  # SLA kontrolü için talep bilgisi
+    plan_df = konsolide_saat(plan_df, veri)
+    print(f"Saat konsolidasyonu sonrası: {len(plan_df)} satır.")
+
+    # Son-işlem 2: 2-Duraklı Milk-Run seferlerini konsolide et
+    print("\n[3c/6] Milk-Run sefer konsolidasyonu...")
+    plan_df = konsolide_milkrun(plan_df, veri)
+    print(f"Milk-Run konsolidasyonu sonrası: {len(plan_df)} satır.")
 
     # -----------------------------------------------------------------------
     # 4. Planı kaydet

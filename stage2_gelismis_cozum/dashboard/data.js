@@ -174,9 +174,9 @@ const DASHBOARD_DATA = {
       "toplam": 34043262.21
     },
     "after": {
-      "arac_maliyet": 29113566.85,
-      "sla_maliyet": 1173281.98,
-      "toplam": 30286848.830000002
+      "arac_maliyet": 20939526.00,
+      "sla_maliyet": 1166885.24,
+      "toplam": 22106411.24
     }
   },
   "kiralik_list": [

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LoadIQ — Lojistik Optimizasyon Panosu</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --navy:#0B2447; --navy2:#132F52; --teal:#1BA6A0; --cyan:#2BB3D9;
+    --ice:#A5D7E8; --ink:#1B2733; --gray:#7A8A99; --gold:#E9B949;
+    --card:#122b4e; --bg:#0a1c33; --line:#1e3a5f; --ok:#22c55e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);color:#e8f0f8;padding:26px;line-height:1.5;}
+  .wrap{max-width:1180px;margin:0 auto;}
+  header{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px;border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:24px;}
+  .brand{font-size:34px;font-weight:800;color:#fff;letter-spacing:.5px;}
+  .brand span{color:var(--teal);}
+  .sub{color:var(--ice);font-size:14px;margin-top:2px;}
+  .badge{background:var(--teal);color:#04222b;font-weight:700;font-size:12px;padding:5px 12px;border-radius:20px;display:inline-block;}
+  .tag{color:var(--gold);font-weight:700;font-size:14px;}
+  .grid{display:grid;gap:16px;}
+  .kpis{grid-template-columns:repeat(6,1fr);margin-bottom:24px;}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 14px;}
+  .kpi .v{font-size:23px;font-weight:800;color:#fff;}
+  .kpi .v.teal{color:var(--teal);} .kpi .v.gold{color:var(--gold);} .kpi .v.ok{color:var(--ok);}
+  .kpi .l{font-size:11.5px;color:var(--gray);margin-top:4px;text-transform:uppercase;letter-spacing:.4px;}
+  .row{grid-template-columns:1fr 1fr;margin-bottom:16px;}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;}
+  .panel h3{font-size:15px;color:#fff;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+  .panel h3::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--teal);}
+  canvas{max-height:260px;}
+  ul.chk{list-style:none;columns:2;column-gap:24px;}
+  ul.chk li{font-size:13px;padding:4px 0;color:#d4e2ef;}
+  ul.chk li::before{content:"✓";color:var(--ok);font-weight:800;margin-right:8px;}
+  .story{grid-template-columns:repeat(3,1fr);}
+  .story .panel .big{font-size:17px;font-weight:800;color:var(--teal);}
+  .story .panel p{font-size:12.5px;color:var(--gray);margin-top:6px;}
+  .foot{text-align:center;color:var(--gray);font-size:12px;margin-top:26px;border-top:1px solid var(--line);padding-top:16px;}
+  .banner{background:linear-gradient(90deg,var(--navy2),var(--card));border:1px solid var(--teal);border-radius:14px;padding:14px 20px;margin-bottom:24px;font-size:14px;color:#fff;}
+  .banner b{color:var(--teal);}
+  @media(max-width:900px){.kpis{grid-template-columns:repeat(3,1fr);}.row,.story{grid-template-columns:1fr;}ul.chk{columns:1;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="brand">Load<span>IQ</span></div>
+      <div class="sub">Yapay Zeka Destekli Lojistik Anahat Optimizasyonu · Gelişmiş Çözüm</div>
+    </div>
+    <div style="text-align:right;">
+      <span class="badge">TEKNOFEST 2026</span>
+      <div class="tag" style="margin-top:8px;">Takım NASİP</div>
+    </div>
+  </header>
+
+  <div class="banner">
+    <b>Feasible çözüm:</b> Konsolidasyon + feasibility düzeltmesiyle toplam maliyet
+    <b>29,84M → 22,11M TL (−%25,9)</b>. Sıfır uygunluk ihlali, checker PASS, 32/32 test.
+  </div>
+
+  <div class="grid kpis">
+    <div class="kpi"><div class="v teal" id="k_toplam"></div><div class="l">Toplam Maliyet</div></div>
+    <div class="kpi"><div class="v" id="k_arac"></div><div class="l">Araç Maliyeti</div></div>
+    <div class="kpi"><div class="v" id="k_sla"></div><div class="l">SLA Cezası (%<span id="k_slao"></span>)</div></div>
+    <div class="kpi"><div class="v" id="k_aracsay"></div><div class="l">Araç Seferi</div></div>
+    <div class="kpi"><div class="v ok">0</div><div class="l">Uygunluk İhlali</div></div>
+    <div class="kpi"><div class="v gold">32/32</div><div class="l">Test · Checker PASS</div></div>
+  </div>
+
+  <div class="grid row">
+    <div class="panel"><h3>Maliyet Düşüşü (Milyon TL)</h3><canvas id="c_cost"></canvas></div>
+    <div class="panel"><h3>Araç Tipi Dağılımı</h3><canvas id="c_dist"></canvas></div>
+  </div>
+
+  <div class="grid row">
+    <div class="panel"><h3>Spot Araç Doluluk Dağılımı</h3><canvas id="c_fill"></canvas></div>
+    <div class="panel"><h3>Günlük SLA Cezası (TL)</h3><canvas id="c_sla"></canvas></div>
+  </div>
+
+  <div class="grid row">
+    <div class="panel">
+      <h3>Problem & Kapsam</h3>
+      <ul class="chk">
+        <li>18 transfer merkezi · 289 aktif rota</li>
+        <li>Günde 2 saat dilimi (09:00 / 17:00)</li>
+        <li>Talep tahmini: <b id="t_tahmin"></b> satır</li>
+        <li>Taşınan toplam: <b id="t_desi"></b> desi</li>
+        <li>Kiralık filo: <b id="t_kir"></b> araç</li>
+        <li>Spot filo: <b id="t_spot"></b> araç</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Kural Uygunluğu (20/20)</h3>
+      <ul class="chk">
+        <li>Format şablonla birebir</li>
+        <li>09:00 / 17:00 ayrı satır</li>
+        <li>Dakika bazlı, yukarı yuvarlama</li>
+        <li>Tır kapasitesi (kiralık dahil)</li>
+        <li>Elleçleme (gece yarısı oransal)</li>
+        <li>SLA: 1 dk → 1 saat ceza</li>
+        <li>Çıkış ≥ talep hazırlık (feasible)</li>
+        <li>Boş araç gönderilmiyor</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="grid story">
+    <div class="panel"><div class="big">Boş Araç Bug'ı</div><p>27 spot araç yüksüz sefer yapıp ~450K TL ekliyordu. Tespit edildi, temizlendi, checker'a kural eklendi.</p></div>
+    <div class="panel"><div class="big">Milk-run Konsolidasyonu</div><p>Aynı çıkıştan farklı varışlara giden düşük-dolu araçlar tek rotada birleştirildi — 215 birleşme, milyonlarca TL tasarruf.</p></div>
+    <div class="panel"><div class="big">Feasibility Düzeltmesi</div><p>Kiralık, 17:00 yükünü 09:00'da sevk ediyordu (%11,6 talep). Yakalandı, düzeltildi — plan artık gerçekten uygulanabilir.</p></div>
+  </div>
+
+  <div class="foot">LoadIQ · Takım NASİP · TEKNOFEST 2026 — Hepsiburada Lojistik Optimizasyonu · Bağımsız checker ile doğrulanmış feasible çözüm</div>
+</div>
+
+<script>
+const D={"toplam":22106411,"arac":20939526,"sla":1166885,"plan_satir":3725,"benzersiz_arac":1697,
+"tahmin_satir":4046,"sla_oran":5.3,"toplam_desi":6613772,"kiralik_arac":98,"spot_arac":1599,
+"arac_dagilimi":{"Kamyon (Kiralık)":28,"Tır (Kiralık)":70,"Hafif Kamyon (Spot)":82,"Kamyon (Spot)":294,"Kamyonet (Spot)":1411,"Tır (Spot)":19},
+"doluluk":[541,289,307,462],
+"sla_gun":{"29 Haz":0,"30 Haz":46232,"01 Tem":122173,"02 Tem":423930,"03 Tem":330611,"04 Tem":217327,"05 Tem":26613,"06 Tem":0}};
+const tl=n=>n.toLocaleString('tr-TR');
+const M=n=>(n/1e6).toFixed(2)+"M";
+document.getElementById('k_toplam').textContent=M(D.toplam)+" ₺";
+document.getElementById('k_arac').textContent=M(D.arac)+" ₺";
+document.getElementById('k_sla').textContent=M(D.sla)+" ₺";
+document.getElementById('k_slao').textContent=D.sla_oran;
+document.getElementById('k_aracsay').textContent=tl(D.benzersiz_arac);
+document.getElementById('t_tahmin').textContent=tl(D.tahmin_satir);
+document.getElementById('t_desi').textContent=tl(D.toplam_desi);
+document.getElementById('t_kir').textContent=D.kiralik_arac;
+document.getElementById('t_spot').textContent=tl(D.spot_arac);
+const NAVY='#0B2447',TEAL='#1BA6A0',CYAN='#2BB3D9',ICE='#A5D7E8',GOLD='#E9B949',GRAY='#7A8A99';
+Chart.defaults.color='#9fb3c8'; Chart.defaults.font.family="Segoe UI";
+const grid={color:'#1e3a5f'};
+new Chart(c_cost,{type:'bar',data:{labels:['Başlangıç','Saat birleş.','Milk-run+Feas.'],datasets:[{data:[29.84,24.08,22.11],backgroundColor:[GRAY,CYAN,TEAL],borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{y:{grid,beginAtZero:true},x:{grid:{display:false}}}}});
+new Chart(c_dist,{type:'doughnut',data:{labels:Object.keys(D.arac_dagilimi),datasets:[{data:Object.values(D.arac_dagilimi),backgroundColor:[NAVY,'#2a4a7a',TEAL,CYAN,ICE,GOLD],borderColor:'#122b4e',borderWidth:2}]},options:{plugins:{legend:{position:'right',labels:{font:{size:10.5},boxWidth:12}}},cutout:'55%'}});
+new Chart(c_fill,{type:'bar',data:{labels:['%0–25','%25–50','%50–75','%75–100'],datasets:[{data:D.doluluk,backgroundColor:TEAL,borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{y:{grid,beginAtZero:true},x:{grid:{display:false}}}}});
+new Chart(c_sla,{type:'bar',data:{labels:Object.keys(D.sla_gun),datasets:[{data:Object.values(D.sla_gun),backgroundColor:GOLD,borderRadius:5}]},options:{plugins:{legend:{display:false}},scales:{y:{grid,beginAtZero:true},x:{grid:{display:false}}}}});
+</script>
+</body>
+</html>

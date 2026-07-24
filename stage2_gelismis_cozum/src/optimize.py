@@ -239,8 +239,13 @@ def generate_plan(talep_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
             cap = vehicle_maliyet[arac_turu]["capacity"]
             
             for _ in range(arac_sayisi):
-                # Gün D saat 17:00'ye kadar tamamlanan tüm bekleyen talepler
-                active_demands = [d for d in pending_demands[(c, v)] if d["completion_time"] <= datetime.datetime(D.year, D.month, D.day, 17, 0)]
+                # Sadece 09:00 tamamlanma saatli talepler yüklenir;
+                # 17:00 talepler pending'de kalarak spot aşamasına bırakılır.
+                active_demands = [
+                    d for d in pending_demands[(c, v)]
+                    if d["completion_time"].hour == 9
+                    and d["completion_time"].date() <= D
+                ]
                 
                 loaded_demands = []
                 loaded_desi = 0.0
@@ -252,24 +257,20 @@ def generate_plan(talep_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
                     
                     load = min(d["desi"], rem_cap)
                     
-                    # Kiralık araca yüklenirse varış ve SLA gecikmesini hesapla:
-                    t_start = datetime.datetime(D.year, D.month, D.day, 9, 0)
+                    # Kiralik araç her zaman D günü 09:00'da yüklemeye başlar.
+                    t_start_est = datetime.datetime(D.year, D.month, D.day, 9, 0)
+                    
                     c_ellec_est = handling_minutes(loaded_desi + load)
                     v_ellec_est = handling_minutes(loaded_desi + load)
-                    varis_dt_est = t_start + timedelta(minutes=c_ellec_est + yol_dk + v_ellec_est)
+                    varis_dt_est = t_start_est + timedelta(minutes=c_ellec_est + yol_dk + v_ellec_est)
                     
-                    # SLA son tarihi
                     sla_deadline = d["completion_time"] + timedelta(hours=r_det["sla_gun"] * 24)
-                    
-                    # Gecikme saati ve SLA cezası
                     gecikme_s = max(0.0, (varis_dt_est - sla_deadline).total_seconds())
-                    gecikme_h = -(-int(gecikme_s) // 3600)  # tavan (ceil)
+                    gecikme_h = -(-int(gecikme_s) // 3600)
                     kiralik_sla_cost = load * gecikme_h * 0.4
                     
-                    # Aynı load'ı HEMEN spot araçla göndermenin en ucuz maliyeti:
                     min_spot_cost = float('inf')
                     for vt in ["Tır", "Kamyon", "Hafif Kamyon", "Kamyonet"]:
-                        # Tır spot yasak kontrolü
                         if vt == "Tır":
                             if c in rules.TIR_TAMAMEN_YASAK_TM or v in rules.TIR_TAMAMEN_YASAK_TM:
                                 continue
@@ -288,15 +289,14 @@ def generate_plan(talep_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
                         if vt_cost < min_spot_cost:
                             min_spot_cost = vt_cost
                     
-                    # Kiralık ile gecikmenin SLA cezası, spot gönderme maliyetinden fazla ise kiralığa yükleme
                     if kiralik_sla_cost > min_spot_cost:
                         continue
                     
-                    # Kiralık yükleme mantığı
                     if d["desi"] <= rem_cap:
                         loaded_demands.append({
                             "talep_id": d["talep_id"],
-                            "desi": d["desi"]
+                            "desi": d["desi"],
+                            "completion_time": d["completion_time"]
                         })
                         loaded_desi += d["desi"]
                         pending_demands[(c, v)].remove(d)
@@ -304,34 +304,35 @@ def generate_plan(talep_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
                     else:
                         loaded_demands.append({
                             "talep_id": d["talep_id"],
-                            "desi": rem_cap
+                            "desi": rem_cap,
+                            "completion_time": d["completion_time"]
                         })
                         loaded_desi += rem_cap
                         d["desi"] -= rem_cap
                         break
                 
-                # Kalkış saati DAİMA 09:00 olarak sabitleniyor.
-                # Kiralık araçlar talep saatine bağlı değildir; şartname gereği
-                # her gün düzenli çalışırlar. Sabit kalkış → deterministik varış
-                # tarihi → TIR kapasitesi gün çakışması önlenir (Balıkesir/Tekirdağ).
+                # YÜKLEME BAŞLANGIÇ ANI: Her zaman D günü 09:00.
+                # Sadece 09:00 talep yüklendiğinden 17:00 koşulu/TIR downgrade gerekmez.
                 t_start = datetime.datetime(D.year, D.month, D.day, 9, 0)
-
-                # Talep olmayan kiralık araç: 0 desiyle çalıştır (şartname gereği)
                 if not loaded_demands:
                     dummy_tid = get_dummy_demand_for_route(c, v, talep_df)
                     loaded_demands.append({
                         "talep_id": dummy_tid,
-                        "desi": 0.0
+                        "desi": 0.0,
+                        "completion_time": t_start
                     })
                     loaded_desi = 0.0
-                
+
                 c_ellecleme = handling_minutes(loaded_desi)
                 v_ellecleme = handling_minutes(loaded_desi)
                 cikis_dt = t_start + timedelta(minutes=c_ellecleme)
                 varis_dt = cikis_dt + timedelta(minutes=yol_dk)
+
                 
                 cost = calculate_vehicle_cost("Kiralık", arac_turu, loaded_desi, yol_dk, mesafe_km, vehicle_maliyet)
                 
+                clean_loaded_demands = [{"talep_id": item["talep_id"], "desi": item["desi"]} for item in loaded_demands]
+
                 trips.append({
                     "arac_id": next_vehicle_id(),
                     "arac_tipi": "Kiralık",
@@ -341,7 +342,7 @@ def generate_plan(talep_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
                     "cikis_dt": cikis_dt,
                     "varis_dt": varis_dt,
                     "t_start": t_start,
-                    "demands": loaded_demands,
+                    "demands": clean_loaded_demands,
                     "yolculuk_suresi": yol_dk,
                     "cikis_ellecleme": c_ellecleme,
                     "varis_ellecleme": v_ellecleme,
@@ -350,15 +351,14 @@ def generate_plan(talep_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
                 
                 # Kapasite tüketimleri
                 if arac_turu == "Tır":
-                    dep_date = cikis_dt.date()
-                    arr_date = varis_dt.date()
-                    remaining_tir[c][dep_date] = max(0, remaining_tir[c].get(dep_date, 0) - 1)
-                    remaining_tir[v][arr_date] = max(0, remaining_tir[v].get(arr_date, 0) - 1)
+                    remaining_tir[c][D] = max(0, remaining_tir[c].get(D, 0) - 1)
+                    remaining_tir[v][varis_dt.date()] = max(0, remaining_tir[v].get(varis_dt.date(), 0) - 1)
                 
                 for day, _, share in split_handling_across_midnight(t_start, c_ellecleme, loaded_desi):
                     remaining_ellecleme[c][day] = remaining_ellecleme[c].get(day, 0) - share
                 for day, _, share in split_handling_across_midnight(varis_dt, v_ellecleme, loaded_desi):
                     remaining_ellecleme[v][day] = remaining_ellecleme[v].get(day, 0) - share
+
 
     # 2. SPOT ARAÇLARIN PLANLANMASI (DÖNGÜ)
     D = start_date
@@ -532,8 +532,9 @@ def generate_plan(talep_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
         arac_turu = trip["arac_turu"]
         cikis = trip["cikis"]
         varis = trip["varis"]
-        cikis_date = trip["cikis_dt"].date()
+        cikis_date = trip["t_start"].date() if arac_tipi == "Kiralık" else trip["cikis_dt"].date()
         cikis_saat = format_hhmm(trip["cikis_dt"])
+
         varis_date = trip["varis_dt"].date()
         varis_saat = format_hhmm(trip["varis_dt"])
         yol_dk = trip["yolculuk_suresi"]
@@ -684,3 +685,733 @@ def _temizle_bos_spot(plan_df: pd.DataFrame) -> pd.DataFrame:
 
     return pd.concat([kiralik_df, spot_temiz], ignore_index=True)
 
+
+# ---------------------------------------------------------------------------
+# Son-İşlem Katmanı: 09:00 + 17:00 Spot Seferlerini Birleştir
+# ---------------------------------------------------------------------------
+def konsolide_saat(plan_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
+    """
+    Post-processing: Aynı (Çıkış TM, Varış TM, Çıkış Tarihi) üzerinde
+    09:00 ve 17:00 bloğunda ayrı Spot araçlar varsa, onları tek bir Spot
+    araca birleştirmeyi dener.
+
+    Birleştirme YALNIZCA şu koşulların TÜMÜ sağlanırsa yapılır:
+      1. Birleşik desi bir araç tipine sığıyor (en küçük uygun tip seçilir).
+      2. Tır yasaklı transfer merkezlerine Tır atanmaz (rules.TIR_TAMAMEN_YASAK_TM).
+      3. Tır günlük kotası aşılamaz.
+      4. Yeni araç 17:00 bloğu kalkış saatini kullanır (her iki yük hazır).
+      5. SLA ihlali ve elleçleme kapasitesi ihlali oluşmaz.
+      6. Yeni toplam maliyet eskisinden DÜŞÜK.
+
+    Kiralık araçlara kesinlikle dokunulmaz.
+    """
+    arac_maliyet_df = veri["arac_maliyet"]
+    mesafe_df = veri["mesafe"]
+    ellecleme_df = veri["ellecleme_kapasitesi"]
+    tir_kapasitesi_df = veri["tir_kapasitesi"]
+    talep_df = veri.get("talep_tahmin")
+    if talep_df is None:
+        return plan_df
+
+    # 1. Sabit Haritalar
+    vehicle_maliyet = {}
+    for _, row in arac_maliyet_df.iterrows():
+        nm = row["arac_adi"]
+        vehicle_maliyet[nm] = {
+            "capacity": row["kapasite_desi"],
+            "spot_saatlik": row["spot_saatlik_tl"],
+            "spot_km": row["spot_km_tl"],
+        }
+
+    ARAC_SIRA = ["Kamyonet", "Hafif Kamyon", "Kamyon", "Tır"]
+
+    dur_col_map = {
+        "Tır": "tir_saat", "Kamyon": "kamyon_saat",
+        "Hafif Kamyon": "hafif_kamyon_saat", "Kamyonet": "kamyonet_saat",
+    }
+    rota_km = {}
+    rota_yol_dk = {}
+    rota_sla_gun = {}
+    for _, r in mesafe_df.iterrows():
+        c, v = r["cikis"], r["varis"]
+        rota_km[(c, v)] = r["mesafe_km"]
+        rota_sla_gun[(c, v)] = int(r["sla_gun"])
+        for arac, kol in dur_col_map.items():
+            rota_yol_dk[(c, v, arac)] = travel_minutes(r[kol])
+
+    tir_kota = tir_kapasitesi_df.set_index("tm")["tir_kapasitesi"].to_dict()
+    ellecleme_kota = ellecleme_df.set_index("tm")["gunluk_kapasite_desi"].to_dict()
+
+    # Talep bilgi haritası
+    def _kok_id(tid: str) -> str:
+        return str(tid).split("-")[0]
+
+    talep_bilgi = (
+        talep_df.set_index("Talep ID")[["Tarih", "Talep Tamamlama Saati"]]
+        .to_dict("index")
+    )
+
+    guncel_plan = plan_df.copy()
+
+    # Mevcut Tır Hareket Haritası: (tm, tarih) -> set(arac_id)
+    tir_hareketleri = guncel_plan[guncel_plan["Araç türü"] == "Tır"]
+    tir_kullanim = defaultdict(set)
+    for _, row in tir_hareketleri.iterrows():
+        aid = row["Araç ID"]
+        if pd.notna(row["Çıkış Tarihi"]):
+            tir_kullanim[(row["Çıkış Transfer Merkezi"], pd.Timestamp(row["Çıkış Tarihi"]).date())].add(aid)
+        if pd.notna(row["Varış Tarihi"]):
+            tir_kullanim[(row["Varış Transfer Merkezi"], pd.Timestamp(row["Varış Tarihi"]).date())].add(aid)
+
+    # Mevcut Elleçleme Yük Haritası: (tm, tarih) -> float
+    ellecleme_yuku = defaultdict(float)
+    for _, row in guncel_plan.iterrows():
+        desi = row["Taşınan Desi"]
+        if pd.notna(row["Çıkış Tarihi"]) and pd.notna(row["Çıkış Saati"]):
+            cikis_bitis = to_datetime(row["Çıkış Tarihi"], row["Çıkış Saati"])
+            sure = row.get("Çıkış Elleçleme süresi", handling_minutes(desi))
+            baslangic = cikis_bitis - timedelta(minutes=int(sure))
+            for tarih, _, desi_payi in split_handling_across_midnight(baslangic, int(sure), desi):
+                ellecleme_yuku[(row["Çıkış Transfer Merkezi"], tarih)] += desi_payi
+        if pd.notna(row["Varış Tarihi"]) and pd.notna(row["Varış Saati"]):
+            varis_baslangic = to_datetime(row["Varış Tarihi"], row["Varış Saati"])
+            sure = row.get("Varış elleçleme süresi", handling_minutes(desi))
+            for tarih, _, desi_payi in split_handling_across_midnight(varis_baslangic, int(sure), desi):
+                ellecleme_yuku[(row["Varış Transfer Merkezi"], tarih)] += desi_payi
+
+    def _saat_blok(s: str) -> str:
+        try:
+            return "sabah" if int(str(s).split(":")[0]) < 14 else "aksam"
+        except Exception:
+            return "diger"
+
+    spot_mask = guncel_plan["Araç Tipi"] == "Spot"
+    spot_df = guncel_plan[spot_mask].copy()
+
+    if spot_df.empty:
+        return guncel_plan
+
+    spot_arac_saat = (
+        spot_df.groupby(["Çıkış Transfer Merkezi", "Varış Transfer Merkezi",
+                         "Çıkış Tarihi", "Araç ID"])["Çıkış Saati"]
+        .first()
+        .reset_index()
+    )
+    spot_arac_saat["blok"] = spot_arac_saat["Çıkış Saati"].apply(_saat_blok)
+
+    GRUP_COLS = ["Çıkış Transfer Merkezi", "Varış Transfer Merkezi", "Çıkış Tarihi"]
+    grup_bloklar = (
+        spot_arac_saat.groupby(GRUP_COLS)["blok"]
+        .apply(set)
+        .reset_index(name="bloklar")
+    )
+    kandidatlar = grup_bloklar[
+        grup_bloklar["bloklar"].apply(lambda x: "sabah" in x and "aksam" in x)
+    ]
+
+    birlesme_sayisi = 0
+    toplam_tasarruf = 0.0
+    silinecek_arac_idler = set()
+    yeni_eklenecek_satirlar = []
+
+    for _, kand in kandidatlar.iterrows():
+        cikis_tm = kand["Çıkış Transfer Merkezi"]
+        varis_tm = kand["Varış Transfer Merkezi"]
+        cikis_tarihi = kand["Çıkış Tarihi"]
+        if isinstance(cikis_tarihi, pd.Timestamp):
+            cikis_tarihi = cikis_tarihi.date()
+
+        grup_arac = spot_arac_saat[
+            (spot_arac_saat["Çıkış Transfer Merkezi"] == cikis_tm) &
+            (spot_arac_saat["Varış Transfer Merkezi"] == varis_tm) &
+            (spot_arac_saat["Çıkış Tarihi"] == cikis_tarihi)
+        ]
+
+        sabah_ids = [aid for aid in grup_arac[grup_arac["blok"] == "sabah"]["Araç ID"].unique() if aid not in silinecek_arac_idler]
+        aksam_ids = [aid for aid in grup_arac[grup_arac["blok"] == "aksam"]["Araç ID"].unique() if aid not in silinecek_arac_idler]
+
+        if len(sabah_ids) != 1 or len(aksam_ids) != 1:
+            continue
+
+        sabah_id, aksam_id = sabah_ids[0], aksam_ids[0]
+
+        sabah_sat = spot_df[spot_df["Araç ID"] == sabah_id]
+        aksam_sat = spot_df[spot_df["Araç ID"] == aksam_id]
+
+        birlesik_desi = sabah_sat["Taşınan Desi"].sum() + aksam_sat["Taşınan Desi"].sum()
+        if birlesik_desi <= 0:
+            continue
+
+        eski_m = float(sabah_sat["Toplam maliyet"].sum() + aksam_sat["Toplam maliyet"].sum())
+
+        secilen_turu = None
+        secilen_satirlar = None
+        secilen_m = 0.0
+
+        for arac_turu in ARAC_SIRA:
+            # 1. Kapasite
+            if vehicle_maliyet.get(arac_turu, {}).get("capacity", 0) < birlesik_desi:
+                continue
+
+            # 2. Tır Yasak TM
+            if arac_turu == "Tır":
+                if cikis_tm in rules.TIR_TAMAMEN_YASAK_TM or varis_tm in rules.TIR_TAMAMEN_YASAK_TM:
+                    continue
+
+            # Saatler ve süreler
+            yeni_cikis_saat_str = aksam_sat["Çıkış Saati"].iloc[0]
+            mesafe_km = rota_km.get((cikis_tm, varis_tm), 0)
+            yol_dk = rota_yol_dk.get((cikis_tm, varis_tm, arac_turu), 0)
+            c_dk = handling_minutes(birlesik_desi)
+            v_dk = handling_minutes(birlesik_desi)
+
+            cikis_dt = to_datetime(cikis_tarihi, yeni_cikis_saat_str)
+            varis_dt = cikis_dt + timedelta(minutes=c_dk + yol_dk)
+            varis_dt_ellecleme_bitis = varis_dt + timedelta(minutes=v_dk)
+            yeni_varis_tarihi = varis_dt.date()
+            yeni_varis_saat_str = format_hhmm(varis_dt)
+
+            # 3. Tır Günlük Kota Kontrolü
+            if arac_turu == "Tır":
+                cikis_tir_mevcut = len(tir_kullanim[(cikis_tm, cikis_tarihi)] - {sabah_id, aksam_id})
+                varis_tir_mevcut = len(tir_kullanim[(varis_tm, yeni_varis_tarihi)] - {sabah_id, aksam_id})
+                if cikis_tir_mevcut + 1 > tir_kota.get(cikis_tm, 0):
+                    continue
+                if varis_tir_mevcut + 1 > tir_kota.get(varis_tm, 0):
+                    continue
+
+            # 4. Maliyet Kontrolü
+            kullanim_dk = c_dk + yol_dk + v_dk
+            kullanim_saat = kullanim_dk / 60.0
+            yeni_m = round(
+                vehicle_maliyet[arac_turu]["spot_saatlik"] * kullanim_saat
+                + vehicle_maliyet[arac_turu]["spot_km"] * mesafe_km,
+                2,
+            )
+            if yeni_m >= eski_m - 0.005:
+                continue
+
+            # 5. SLA Kontrolü
+            sla_gun = rota_sla_gun.get((cikis_tm, varis_tm), 1)
+            sla_ihlal = False
+            tum_satirlar = pd.concat([aksam_sat, sabah_sat])
+            for _, s_row in tum_satirlar.iterrows():
+                tid = s_row["Talep ID"]
+                kok_id = _kok_id(tid)
+                bilgi = talep_bilgi.get(tid) or talep_bilgi.get(kok_id)
+                if bilgi is not None:
+                    t_dt = to_datetime(bilgi["Tarih"], bilgi["Talep Tamamlama Saati"])
+                    sla_limit = t_dt + timedelta(hours=sla_gun * 24)
+                    if varis_dt_ellecleme_bitis > sla_limit:
+                        sla_ihlal = True
+                        break
+            if sla_ihlal:
+                continue
+
+            # 6. Elleçleme Kapasitesi Kontrolü
+            # Eski iki aracın elleçleme yükünü düş, yenininkini ekle ve kota aşımına bak
+            yeni_satirlar = []
+            for kaynak in [aksam_sat, sabah_sat]:
+                for _, satir in kaynak.iterrows():
+                    y = satir.copy()
+                    y["Araç ID"] = aksam_id
+                    y["Araç türü"] = arac_turu
+                    y["Çıkış Saati"] = yeni_cikis_saat_str
+                    y["Çıkış Tarihi"] = cikis_tarihi
+                    y["Varış Tarihi"] = yeni_varis_tarihi
+                    y["Varış Saati"] = yeni_varis_saat_str
+                    y["Yolculuk süresi"] = int(yol_dk)
+                    y["Çıkış Elleçleme süresi"] = int(c_dk)
+                    y["Varış elleçleme süresi"] = int(v_dk)
+                    y["SLA cezası"] = 0.0
+                    y["Toplam maliyet"] = yeni_m if len(yeni_satirlar) == 0 else 0.0
+                    yeni_satirlar.append(y)
+
+            # Geçici elleçleme farklarını hesapla
+            temp_ellecleme = defaultdict(float)
+            # Eskileri düş
+            for _, r in tum_satirlar.iterrows():
+                d = r["Taşınan Desi"]
+                c_b = to_datetime(r["Çıkış Tarihi"], r["Çıkış Saati"])
+                s_c = r.get("Çıkış Elleçleme süresi", handling_minutes(d))
+                for t, _, dp in split_handling_across_midnight(c_b - timedelta(minutes=int(s_c)), int(s_c), d):
+                    temp_ellecleme[(r["Çıkış Transfer Merkezi"], t)] -= dp
+                v_b = to_datetime(r["Varış Tarihi"], r["Varış Saati"])
+                s_v = r.get("Varış elleçleme süresi", handling_minutes(d))
+                for t, _, dp in split_handling_across_midnight(v_b, int(s_v), d):
+                    temp_ellecleme[(r["Varış Transfer Merkezi"], t)] += 0 # Zaten düştük
+            # Yenileri ekle
+            c_b_new = cikis_dt
+            for t, _, dp in split_handling_across_midnight(c_b_new - timedelta(minutes=c_dk), c_dk, birlesik_desi):
+                temp_ellecleme[(cikis_tm, t)] += dp
+            v_b_new = varis_dt
+            for t, _, dp in split_handling_across_midnight(v_b_new, v_dk, birlesik_desi):
+                temp_ellecleme[(varis_tm, t)] += dp
+
+            # Kota aşımı var mı?
+            ellecleme_ihlal = False
+            for (tm, t), fark in temp_ellecleme.items():
+                yeni_toplam = ellecleme_yuku[(tm, t)] + fark
+                if yeni_toplam > ellecleme_kota.get(tm, float("inf")) + 1e-5:
+                    ellecleme_ihlal = True
+                    break
+            if ellecleme_ihlal:
+                continue
+
+            # Başarılı tip bulundu
+            secilen_turu = arac_turu
+            secilen_satirlar = yeni_satirlar
+            secilen_m = yeni_m
+            break
+
+        if secilen_turu is not None:
+            birlesme_sayisi += 1
+            toplam_tasarruf += (eski_m - secilen_m)
+            silinecek_arac_idler.add(sabah_id)
+            silinecek_arac_idler.add(aksam_id)
+            yeni_eklenecek_satirlar.extend(secilen_satirlar)
+
+            # Haritaları güncelle
+            if secilen_turu == "Tır":
+                tir_kullanim[(cikis_tm, cikis_tarihi)].add(aksam_id)
+                tir_kullanim[(varis_tm, yeni_varis_tarihi)].add(aksam_id)
+
+    if birlesme_sayisi == 0:
+        print("  konsolide_saat: Uygun birleştirme bulunamadı.")
+        return plan_df
+
+    kalan_plan = guncel_plan[~guncel_plan["Araç ID"].isin(silinecek_arac_idler)].copy()
+    yeni_df = pd.DataFrame(yeni_eklenecek_satirlar)
+    sonuc_df = pd.concat([kalan_plan, yeni_df], ignore_index=True)
+
+    print(f"  konsolide_saat: {birlesme_sayisi} birleştirme yapıldı.")
+    print(f"  Toplam Tasarruf: {toplam_tasarruf:,.2f} TL")
+    return sonuc_df
+
+
+# ---------------------------------------------------------------------------
+# Aday Bulucu: 2-Duraklı Milk-Run Adaylarını Listele (Planı Değiştirmez)
+# ---------------------------------------------------------------------------
+def milkrun_adaylari(plan_df: pd.DataFrame, veri: dict) -> list:
+    """
+    Planı DEĞİŞTİRMEDEN, aynı çıkış merkezinden farklı varış merkezlerine giden
+    düşük doluluklu (<%50) Spot araçları tarar ve potansiyel 2-duraklı milk-run
+    adaylarını bulur.
+
+    Döndürür: [(arac1_id, arac2_id, tahmini_tasarruf), ...]
+    """
+    from itertools import combinations
+
+    arac_maliyet_df = veri["arac_maliyet"]
+    mesafe_df = veri["mesafe"]
+
+    vehicle_info = {}
+    for _, row in arac_maliyet_df.iterrows():
+        vehicle_info[row["arac_adi"]] = {
+            "capacity": row["kapasite_desi"],
+            "spot_saatlik": row["spot_saatlik_tl"],
+            "spot_km": row["spot_km_tl"],
+        }
+
+    ARAC_SIRA = ["Kamyonet", "Hafif Kamyon", "Kamyon", "Tır"]
+    dur_col_map = {
+        "Tır": "tir_saat", "Kamyon": "kamyon_saat",
+        "Hafif Kamyon": "hafif_kamyon_saat", "Kamyonet": "kamyonet_saat",
+    }
+
+    rota_km = {}
+    rota_yol_dk = {}
+    for _, r in mesafe_df.iterrows():
+        c, v = r["cikis"], r["varis"]
+        rota_km[(c, v)] = r["mesafe_km"]
+        for arac, kol in dur_col_map.items():
+            rota_yol_dk[(c, v, arac)] = travel_minutes(r[kol])
+
+    spot_mask = plan_df["Araç Tipi"] == "Spot"
+    spot_df = plan_df[spot_mask].copy()
+
+    if spot_df.empty:
+        print("  milkrun_adaylari: Hiç Spot araç yok.")
+        return []
+
+    arac_ozet = {}
+    for arac_id, grup in spot_df.groupby("Araç ID"):
+        cikis_tm = grup["Çıkış Transfer Merkezi"].iloc[0]
+        varis_tm = grup["Varış Transfer Merkezi"].iloc[0]
+        cikis_tarih = grup["Çıkış Tarihi"].iloc[0]
+        cikis_saat = grup["Çıkış Saati"].iloc[0]
+        arac_turu = grup["Araç türü"].iloc[0]
+        toplam_desi = grup["Taşınan Desi"].sum()
+        kapasite = vehicle_info.get(arac_turu, {}).get("capacity", 1)
+        doluluk = toplam_desi / kapasite
+
+        if doluluk < 0.50 and toplam_desi > 0:
+            eski_maliyet = grup["Toplam maliyet"].sum()
+            arac_ozet[arac_id] = {
+                "arac_id": arac_id,
+                "cikis_tm": cikis_tm,
+                "varis_tm": varis_tm,
+                "cikis_tarih": cikis_tarih,
+                "cikis_saat": cikis_saat,
+                "arac_turu": arac_turu,
+                "toplam_desi": toplam_desi,
+                "doluluk": doluluk,
+                "eski_maliyet": eski_maliyet
+            }
+
+    kalkis_gruplari = defaultdict(list)
+    for a_id, info in arac_ozet.items():
+        key = (info["cikis_tm"], info["cikis_tarih"], info["cikis_saat"])
+        kalkis_gruplari[key].append(info)
+
+    adaylar = []
+
+    for (cikis_tm, cikis_tarih, cikis_saat), araclar in kalkis_gruplari.items():
+        if len(araclar) < 2:
+            continue
+
+        for a1, a2 in combinations(araclar, 2):
+            if a1["varis_tm"] == a2["varis_tm"]:
+                continue
+
+            birlesik_desi = a1["toplam_desi"] + a2["toplam_desi"]
+
+            secilen_tip = None
+            for tip in ARAC_SIRA:
+                if vehicle_info.get(tip, {}).get("capacity", 0) >= birlesik_desi:
+                    secilen_tip = tip
+                    break
+
+            if secilen_tip is None:
+                continue
+
+            eski_toplam_maliyet = a1["eski_maliyet"] + a2["eski_maliyet"]
+
+            b_tm = a1["varis_tm"]
+            c_tm = a2["varis_tm"]
+
+            en_iyi_yeni_maliyet = float("inf")
+
+            for (durak1, durak2, desi1, desi2) in [
+                (b_tm, c_tm, a1["toplam_desi"], a2["toplam_desi"]),
+                (c_tm, b_tm, a2["toplam_desi"], a1["toplam_desi"])
+            ]:
+                if (durak1, durak2) not in rota_km:
+                    continue
+
+                km1 = rota_km.get((cikis_tm, durak1), 0)
+                km2 = rota_km.get((durak1, durak2), 0)
+                toplam_km = km1 + km2
+
+                yol1 = rota_yol_dk.get((cikis_tm, durak1, secilen_tip), 0)
+                yol2 = rota_yol_dk.get((durak1, durak2, secilen_tip), 0)
+
+                c_dk = handling_minutes(birlesik_desi)
+                d1_dk = handling_minutes(desi1)
+                d2_dk = handling_minutes(desi2)
+
+                toplam_kullanim_dk = c_dk + yol1 + d1_dk + yol2 + d2_dk
+                kullanim_saat = toplam_kullanim_dk / 60.0
+
+                saatlik_tl = vehicle_info[secilen_tip]["spot_saatlik"]
+                km_tl = vehicle_info[secilen_tip]["spot_km"]
+
+                yeni_m = round(saatlik_tl * kullanim_saat + km_tl * toplam_km, 2)
+                if yeni_m < en_iyi_yeni_maliyet:
+                    en_iyi_yeni_maliyet = yeni_m
+
+            if en_iyi_yeni_maliyet < eski_toplam_maliyet:
+                tasarruf = round(eski_toplam_maliyet - en_iyi_yeni_maliyet, 2)
+                adaylar.append((a1["arac_id"], a2["arac_id"], tasarruf))
+
+    adaylar.sort(key=lambda x: x[2], reverse=True)
+
+    print(f"\n==================================================")
+    print(f"MILK-RUN ADAY TARAMASI")
+    print(f"==================================================")
+    print(f"Bulunan Aday Çift Sayısı: {len(adaylar)}")
+    if adaylar:
+        print("\nİlk 10 Aday Çift (Araç 1, Araç 2, Tahmini Tasarruf):")
+        for i, (a1, a2, tas) in enumerate(adaylar[:10], 1):
+            print(f"  {i:2d}. {a1} + {a2} -> Tahmini Tasarruf: {tas:,.2f} TL")
+    print(f"==================================================\n")
+
+    return adaylar
+
+
+# ---------------------------------------------------------------------------
+# Son-İşlem Katmanı: 2-Duraklı Milk-Run Seferlerini Konsolide Et
+# ---------------------------------------------------------------------------
+def konsolide_milkrun(plan_df: pd.DataFrame, veri: dict) -> pd.DataFrame:
+    """
+    Milk-run konsolidasyon katmanı:
+    Aynı çıkış transfer merkezinden farklı varış merkezlerine giden 2 düşük doluluklu (<%50) Spot aracı
+    tek bir A -> B -> C milk-run seferinde birleştirir.
+
+    Uygulama Koşulları:
+      1. Birleşik desi bir araç tipine sığmalı (en küçük uygun araç seçilir).
+      2. Tır yasaklı transfer merkezlerine Tır atanmaz (rules.TIR_TAMAMEN_YASAK_TM).
+      3. Tır günlük kotası ve elleçleme kapasiteleri aşılamaz.
+      4. SLA ihlali oluşmaz.
+      5. Yeni Toplam Maliyet (Yeni Araç Maliyeti + Yeni SLA Cezası) < Eski Toplam Maliyet olmalı.
+
+    Kiralık araçlara kesinlikle dokunulmaz.
+    """
+    from checker import check_tir_capacity, check_ellecleme_capacity, DogrulamaRaporu
+
+    talep_df = veri.get("talep_tahmin")
+    if talep_df is None:
+        return plan_df
+
+    arac_maliyet_df = veri["arac_maliyet"]
+    mesafe_df = veri["mesafe"]
+    tir_kapasitesi_df = veri["tir_kapasitesi"]
+    ellecleme_df = veri["ellecleme_kapasitesi"]
+    kiralik_araclar_df = veri.get("kiralik_araclar")
+
+    adaylar = milkrun_adaylari(plan_df, veri)
+    if not adaylar:
+        return plan_df
+
+    vehicle_info = {}
+    for _, row in arac_maliyet_df.iterrows():
+        vehicle_info[row["arac_adi"]] = {
+            "capacity": row["kapasite_desi"],
+            "spot_saatlik": row["spot_saatlik_tl"],
+            "spot_km": row["spot_km_tl"],
+        }
+
+    ARAC_SIRA = ["Kamyonet", "Hafif Kamyon", "Kamyon", "Tır"]
+    dur_col_map = {
+        "Tır": "tir_saat", "Kamyon": "kamyon_saat",
+        "Hafif Kamyon": "hafif_kamyon_saat", "Kamyonet": "kamyonet_saat",
+    }
+
+    rota_details = {}
+    for _, r in mesafe_df.iterrows():
+        c, v = r["cikis"], r["varis"]
+        rota_details[(c, v)] = {
+            "mesafe_km": float(r["mesafe_km"]),
+            "sla_gun": int(r["sla_gun"]),
+            "durations": {vt: travel_minutes(r[col]) for vt, col in dur_col_map.items()}
+        }
+
+    talep_bilgi = talep_df.set_index("Talep ID")[["Tarih", "Talep Tamamlama Saati"]].to_dict("index")
+
+    def _kok_id(tid: str) -> str:
+        return str(tid).split("-")[0]
+
+    guncel_plan = plan_df.copy()
+    kabul_edilen_birlesme = 0
+    eski_toplam_maliyet_genel = 0.0
+    yeni_toplam_maliyet_genel = 0.0
+
+    silinecek_arac_idler = set()
+    yeni_eklenecek_satirlar = []
+
+    for a1_id, a2_id, _ in adaylar:
+        if a1_id in silinecek_arac_idler or a2_id in silinecek_arac_idler:
+            continue
+
+        a1_sat = guncel_plan[guncel_plan["Araç ID"] == a1_id]
+        a2_sat = guncel_plan[guncel_plan["Araç ID"] == a2_id]
+
+        if a1_sat.empty or a2_sat.empty:
+            continue
+
+        cikis_tm1 = a1_sat["Çıkış Transfer Merkezi"].iloc[0]
+        cikis_tm2 = a2_sat["Çıkış Transfer Merkezi"].iloc[0]
+        if cikis_tm1 != cikis_tm2:
+            continue
+
+        cikis_tm = cikis_tm1
+        b_tm = a1_sat["Varış Transfer Merkezi"].iloc[0]
+        c_tm = a2_sat["Varış Transfer Merkezi"].iloc[0]
+
+        if b_tm == c_tm:
+            continue
+
+        cikis_tarih = a1_sat["Çıkış Tarihi"].iloc[0]
+        cikis_saat_str = a1_sat["Çıkış Saati"].iloc[0]
+
+        desi1 = a1_sat["Taşınan Desi"].sum()
+        desi2 = a2_sat["Taşınan Desi"].sum()
+        birlesik_desi = desi1 + desi2
+
+        eski_arac_maliyeti = a1_sat["Toplam maliyet"].sum() + a2_sat["Toplam maliyet"].sum()
+        eski_sla_cezasi = a1_sat["SLA cezası"].sum() + a2_sat["SLA cezası"].sum()
+        eski_toplam = eski_arac_maliyeti + eski_sla_cezasi
+
+        secilen_tip = None
+        for tip in ARAC_SIRA:
+            if vehicle_info.get(tip, {}).get("capacity", 0) >= birlesik_desi:
+                secilen_tip = tip
+                break
+        if secilen_tip is None:
+            continue
+
+        en_iyi_opsiyon = None
+        en_ucuz_yeni_toplam = float("inf")
+
+        for (durak1, durak2, d1_sat, d2_sat, desi_durak1, desi_durak2) in [
+            (b_tm, c_tm, a1_sat, a2_sat, desi1, desi2),
+            (c_tm, b_tm, a2_sat, a1_sat, desi2, desi1)
+        ]:
+            if (cikis_tm, durak1) not in rota_details or (durak1, durak2) not in rota_details:
+                continue
+
+            if secilen_tip == "Tır":
+                if cikis_tm in rules.TIR_TAMAMEN_YASAK_TM or durak1 in rules.TIR_TAMAMEN_YASAK_TM or durak2 in rules.TIR_TAMAMEN_YASAK_TM:
+                    continue
+
+            r1 = rota_details[(cikis_tm, durak1)]
+            r2 = rota_details[(durak1, durak2)]
+
+            km1 = r1["mesafe_km"]
+            km2 = r2["mesafe_km"]
+            toplam_km = km1 + km2
+
+            yol1_dk = r1["durations"][secilen_tip]
+            yol2_dk = r2["durations"][secilen_tip]
+
+            c_dk = handling_minutes(birlesik_desi)
+            v1_dk = handling_minutes(desi_durak1)
+            v2_dk = handling_minutes(desi_durak2)
+
+            toplam_kullanim_dk = c_dk + yol1_dk + v1_dk + yol2_dk + v2_dk
+            kullanim_saat = toplam_kullanim_dk / 60.0
+
+            saatlik_tl = vehicle_info[secilen_tip]["spot_saatlik"]
+            km_tl = vehicle_info[secilen_tip]["spot_km"]
+
+            yeni_arac_maliyeti = round(saatlik_tl * kullanim_saat + km_tl * toplam_km, 2)
+
+            cikis1_dt = to_datetime(cikis_tarih, cikis_saat_str)
+            varis1_dt = cikis1_dt + timedelta(minutes=c_dk + yol1_dk)
+            varis1_ellecleme_bitis = varis1_dt + timedelta(minutes=v1_dk)
+
+            cikis2_dt = varis1_dt + timedelta(minutes=v1_dk)
+            varis2_dt = cikis2_dt + timedelta(minutes=yol2_dk)
+            varis2_ellecleme_bitis = varis2_dt + timedelta(minutes=v2_dk)
+
+            yeni_sla_cezasi = 0.0
+            yeni_bacak1_satirlar = []
+            for _, s_row in d1_sat.iterrows():
+                y = s_row.copy()
+                y["Araç ID"] = a1_id
+                y["Araç türü"] = secilen_tip
+                y["Çıkış Transfer Merkezi"] = cikis_tm
+                y["Varış Transfer Merkezi"] = durak1
+                y["Çıkış Tarihi"] = cikis1_dt.date()
+                y["Çıkış Saati"] = format_hhmm(cikis1_dt)
+                y["Varış Tarihi"] = varis1_dt.date()
+                y["Varış Saati"] = format_hhmm(varis1_dt)
+                y["Yolculuk süresi"] = int(yol1_dk)
+                y["Çıkış Elleçleme süresi"] = int(c_dk)
+                y["Varış elleçleme süresi"] = int(v1_dk)
+
+                tid = y["Talep ID"]
+                kok = _kok_id(tid)
+                bilgi = talep_bilgi.get(tid) or talep_bilgi.get(kok)
+                sla_pen = 0.0
+                if bilgi is not None:
+                    t_dt = to_datetime(bilgi["Tarih"], bilgi["Talep Tamamlama Saati"])
+                    sla_limit = t_dt + timedelta(hours=r1["sla_gun"] * 24)
+                    gecikme_sec = (varis1_ellecleme_bitis - sla_limit).total_seconds()
+                    if gecikme_sec > 0:
+                        gecikme_saat = -(-int(gecikme_sec) // 3600)
+                        sla_pen = round(y["Taşınan Desi"] * gecikme_saat * rules.SLA_CEZA_TL_PER_DESI_SAAT, 2)
+                y["SLA cezası"] = sla_pen
+                yeni_sla_cezasi += sla_pen
+                yeni_bacak1_satirlar.append(y)
+
+            yeni_bacak2_satirlar = []
+            for _, s_row in d2_sat.iterrows():
+                y = s_row.copy()
+                y["Araç ID"] = a1_id
+                y["Araç türü"] = secilen_tip
+                y["Çıkış Transfer Merkezi"] = durak1
+                y["Varış Transfer Merkezi"] = durak2
+                y["Çıkış Tarihi"] = cikis2_dt.date()
+                y["Çıkış Saati"] = format_hhmm(cikis2_dt)
+                y["Varış Tarihi"] = varis2_dt.date()
+                y["Varış Saati"] = format_hhmm(varis2_dt)
+                y["Yolculuk süresi"] = int(yol2_dk)
+                y["Çıkış Elleçleme süresi"] = int(0)
+                y["Varış elleçleme süresi"] = int(v2_dk)
+
+                tid = y["Talep ID"]
+                kok = _kok_id(tid)
+                bilgi = talep_bilgi.get(tid) or talep_bilgi.get(kok)
+                sla_pen = 0.0
+                if bilgi is not None:
+                    r_a_durak2 = rota_details.get((cikis_tm, durak2))
+                    sla_g = r_a_durak2["sla_gun"] if r_a_durak2 else r2["sla_gun"]
+                    t_dt = to_datetime(bilgi["Tarih"], bilgi["Talep Tamamlama Saati"])
+                    sla_limit = t_dt + timedelta(hours=sla_g * 24)
+                    gecikme_sec = (varis2_ellecleme_bitis - sla_limit).total_seconds()
+                    if gecikme_sec > 0:
+                        gecikme_saat = -(-int(gecikme_sec) // 3600)
+                        sla_pen = round(y["Taşınan Desi"] * gecikme_saat * rules.SLA_CEZA_TL_PER_DESI_SAAT, 2)
+                y["SLA cezası"] = sla_pen
+                yeni_sla_cezasi += sla_pen
+                yeni_bacak2_satirlar.append(y)
+
+            yeni_toplam_maliyet = yeni_arac_maliyeti + yeni_sla_cezasi
+
+            if yeni_toplam_maliyet < eski_toplam and yeni_toplam_maliyet < en_ucuz_yeni_toplam:
+                en_ucuz_yeni_toplam = yeni_toplam_maliyet
+
+                for idx, sat in enumerate(yeni_bacak1_satirlar):
+                    sat["Toplam maliyet"] = yeni_arac_maliyeti if idx == 0 else 0.0
+                for sat in yeni_bacak2_satirlar:
+                    sat["Toplam maliyet"] = 0.0
+
+                en_iyi_opsiyon = {
+                    "yeni_satirlar": yeni_bacak1_satirlar + yeni_bacak2_satirlar,
+                    "yeni_toplam_maliyet": yeni_toplam_maliyet,
+                    "eski_toplam_maliyet": eski_toplam
+                }
+
+        if en_iyi_opsiyon is None:
+            continue
+
+        # Hızlı Kapasite Kontrolleri
+        test_plan = pd.concat([
+            guncel_plan[~guncel_plan["Araç ID"].isin(list(silinecek_arac_idler) + [a1_id, a2_id])],
+            pd.DataFrame(yeni_eklenecek_satirlar + en_iyi_opsiyon["yeni_satirlar"])
+        ], ignore_index=True)
+
+        sim_rapor = DogrulamaRaporu()
+        check_tir_capacity(test_plan, tir_kapasitesi_df, sim_rapor)
+        check_ellecleme_capacity(test_plan, ellecleme_df, sim_rapor)
+
+        if not sim_rapor.hata_var_mi:
+            kabul_edilen_birlesme += 1
+            silinecek_arac_idler.add(a1_id)
+            silinecek_arac_idler.add(a2_id)
+            yeni_eklenecek_satirlar.extend(en_iyi_opsiyon["yeni_satirlar"])
+            eski_toplam_maliyet_genel += en_iyi_opsiyon["eski_toplam_maliyet"]
+            yeni_toplam_maliyet_genel += en_iyi_opsiyon["yeni_toplam_maliyet"]
+
+    if kabul_edilen_birlesme == 0:
+        print("  konsolide_milkrun: Kabul edilen milk-run birleştirmesi olmadı.")
+        return plan_df
+
+    sonuc_plan = pd.concat([
+        guncel_plan[~guncel_plan["Araç ID"].isin(silinecek_arac_idler)],
+        pd.DataFrame(yeni_eklenecek_satirlar)
+    ], ignore_index=True)
+
+    net_tasarruf = eski_toplam_maliyet_genel - yeni_toplam_maliyet_genel
+    print(f"\n==================================================")
+    print(f"KONSOLİDE MILK-RUN SONUÇLARI")
+    print(f"==================================================")
+    print(f"Kabul Edilen Milk-Run Birleşmesi : {kabul_edilen_birlesme}")
+    print(f"Azalan Araç Sayısı              : {kabul_edilen_birlesme}")
+    print(f"Eski Maliyet (Birleştirilen)   : {eski_toplam_maliyet_genel:,.2f} TL")
+    print(f"Yeni Maliyet (Birleştirilen)   : {yeni_toplam_maliyet_genel:,.2f} TL")
+    print(f"Net Tasarruf                   : {net_tasarruf:,.2f} TL")
+    print(f"==================================================\n")
+
+    return sonuc_plan
