@@ -7,9 +7,9 @@
 **TEKNOFEST 2026 · Hepsiburada Lojistik Optimizasyonu Yarışması**
 
 [![Aşama](https://img.shields.io/badge/A%C5%9Fama-Geli%C5%9Fmi%C5%9F%20%C3%87%C3%B6z%C3%BCm-blue)](./stage2_gelismis_cozum)
-[![Durum](https://img.shields.io/badge/Durum-Aktif%20Geli%C5%9Ftirme-yellow)](./stage2_gelismis_cozum)
+[![Durum](https://img.shields.io/badge/Durum-Tamamland%C4%B1%20%C2%B7%20Feasible-success)](./stage2_gelismis_cozum)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Testler](https://img.shields.io/badge/Testler-20%2F20%20PASS-success)](./stage2_gelismis_cozum/tests)
+[![Testler](https://img.shields.io/badge/Testler-32%2F32%20PASS-success)](./stage2_gelismis_cozum/tests)
 [![Takım](https://img.shields.io/badge/Tak%C4%B1m-NAS%C4%B0P-lightgrey)](#-tak%C4%B1m)
 
 </div>
@@ -42,7 +42,7 @@ Yarışma iki aşamalı ilerlemektedir:
 | Aşama | Durum | Konum |
 |---|---|---|
 | **Birinci Aşama** — Temel İşlevli Çözüm | ✅ Tamamlandı (yarı final) | [`stage1_temel_cozum/`](./stage1_temel_cozum) |
-| **İkinci Aşama** — Gelişmiş Çözüm | 🔵 Aktif geliştiriliyor | [`stage2_gelismis_cozum/`](./stage2_gelismis_cozum) |
+| **İkinci Aşama** — Gelişmiş Çözüm | ✅ Tamamlandı · feasible plan (22.106.411 TL, checker PASS) | [`stage2_gelismis_cozum/`](./stage2_gelismis_cozum) |
 
 Bu doküman, repoyu ilk kez inceleyen biri (jüri, mentor, yeni takım
 üyesi) için genel bir harita niteliğindedir. Teknik detaylar için
@@ -154,12 +154,12 @@ python src/forecast.py
 | Kanonik kural spesifikasyonu | ✅ Tamamlandı | [`docs/is_kurallari_spec.md`](./stage2_gelismis_cozum/docs/is_kurallari_spec.md) |
 | `time_utils.py` — zaman/yuvarlama çekirdeği | ✅ Tamamlandı | 7/7 test PASS |
 | `data_loader.py` — veri okuma/doğrulama | ✅ Tamamlandı | 6/6 test PASS |
-| `checker.py` — bağımsız doğrulayıcı | ✅ Tamamlandı | 7/7 test PASS |
-| `forecast.py` — talep tahmin modeli | ✅ Tamamlandı | Backtest WAPE ≈ %21–30 |
-| `optimize.py` — taşıma planı motoru | 🔵 Geliştiriliyor | — |
-| Uçtan uca entegrasyon (`pipeline.py`) | ⏳ Bekliyor | `optimize.py`'ye bağımlı |
+| `checker.py` — bağımsız doğrulayıcı | ✅ Tamamlandı | 19/19 test PASS |
+| `forecast.py` — talep tahmin modeli | ✅ Tamamlandı | Backtest WAPE ≈ %24 (P×E) |
+| `optimize.py` — taşıma planı motoru | ✅ Tamamlandı | checker PASS · feasible 22.106.411 TL |
+| Uçtan uca entegrasyon (`pipeline.py`) | ✅ Tamamlandı | `pipeline.py` → checker PASS, 0 uygunluk ihlali |
 
-**Toplam:** 20/20 birim test yeşil (bkz. `stage2_gelismis_cozum/tests/`).
+**Toplam:** 32/32 birim test yeşil (bkz. `stage2_gelismis_cozum/tests/`). Nihai feasible plan maliyeti **22.106.411 TL** (başlangıca göre −%25,9).
 
 ---
 
