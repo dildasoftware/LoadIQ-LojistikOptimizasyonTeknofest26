@@ -245,10 +245,12 @@ Yarışma şartnamesi, resmi Q&A ve duyurulardan derlenen **20 iş kuralının t
 
 ## 👥 Takım
 
-<div align="center">
+**Takım NASİP** — TEKNOFEST 2026 · Lojistik & Ulaştırma Kategorisi
 
-**Takım NASİP** · TEKNOFEST 2026 · Lojistik & Ulaştırma Kategorisi
+| Üye | Rol |
+|---|---|
+| **Dilara Bilişik** | Takım Kaptanı |
+| **Fatma Elarid** | Takım Üyesi |
+| **Meryem Tekeli** | Takım Üyesi |
 
-📧 bilbildilara77@gmail.com
-
-</div>
+📧 İletişim: bilbildilara77@gmail.com

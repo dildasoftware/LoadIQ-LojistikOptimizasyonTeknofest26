@@ -8,7 +8,7 @@
 
 [![Aşama](https://img.shields.io/badge/A%C5%9Fama-Geli%C5%9Fmi%C5%9F%20%C3%87%C3%B6z%C3%BCm-blue)](./stage2_gelismis_cozum)
 [![Durum](https://img.shields.io/badge/Durum-Tamamland%C4%B1%20%C2%B7%20Feasible-success)](./stage2_gelismis_cozum)
-[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Testler](https://img.shields.io/badge/Testler-32%2F32%20PASS-success)](./stage2_gelismis_cozum/tests)
 [![Takım](https://img.shields.io/badge/Tak%C4%B1m-NAS%C4%B0P-lightgrey)](#-tak%C4%B1m)
 
@@ -19,6 +19,7 @@
 ## 📋 İçindekiler
 
 - [Proje Hakkında](#-proje-hakkında)
+- [Öne Çıkan Sonuçlar](#-öne-çıkan-sonuçlar)
 - [Problem Tanımı](#-problem-tanımı)
 - [Repo Yapısı](#-repo-yapısı)
 - [Sistem Mimarisi](#-sistem-mimarisi-i̇kinci-aşama)
@@ -44,9 +45,27 @@ Yarışma iki aşamalı ilerlemektedir:
 | **Birinci Aşama** — Temel İşlevli Çözüm | ✅ Tamamlandı (yarı final) | [`stage1_temel_cozum/`](./stage1_temel_cozum) |
 | **İkinci Aşama** — Gelişmiş Çözüm | ✅ Tamamlandı · feasible plan (22.106.411 TL, checker PASS) | [`stage2_gelismis_cozum/`](./stage2_gelismis_cozum) |
 
-Bu doküman, repoyu ilk kez inceleyen biri (jüri, mentor, yeni takım
-üyesi) için genel bir harita niteliğindedir. Teknik detaylar için
-[Dokümantasyon](#-dokümantasyon) bölümündeki bağlantılara bakınız.
+Projenin ayırt edici yanı, planı üreten motordan (`optimize.py`)
+**bağımsız** yazılmış bir doğrulayıcının (`checker.py`) sistemin kendi
+çıktısını sıfırdan denetlemesidir; böylece sonuç, sıfır kural ihlaliyle
+bağımsız olarak doğrulanır. Aşamaların tümü ve teknik detaylar için
+[`stage2_gelismis_cozum/`](./stage2_gelismis_cozum) klasörüne bakınız.
+
+---
+
+## 🏆 Öne Çıkan Sonuçlar
+
+Tüm değerler, `optimize.py`'den **bağımsız** yazılmış `checker.py` ile sıfırdan doğrulanmıştır.
+
+| Metrik | Sonuç |
+|---|---|
+| Nihai plan maliyeti (feasible) | **22.106.411 TL** |
+| Başlangıç planına göre iyileşme | **−%25,9** (29,84M → 22,11M TL) |
+| Uygunluk (feasibility) ihlali | **0** |
+| Bağımsız doğrulama | **checker PASS** (12 kontrol) |
+| Birim testler | **32 / 32 PASS** |
+| Talep tahmini doğruluğu | **WAPE ≈ %24,4** (P×E yöntemi; LightGBM'in %32,5'ini geçti) |
+| Kural uyumu | **20 / 20** iş kuralı |
 
 ---
 
@@ -81,7 +100,7 @@ LoadIQ-LojistikOptimizasyonTeknofest26/
 │   ├── tests/
 │   └── README.md
 │
-├── stage2_gelismis_cozum/       # İkinci Aşama (AKTİF geliştirme)
+├── stage2_gelismis_cozum/       # İkinci Aşama (Gelişmiş Çözüm — tamamlandı)
 │   ├── config/rules.py          # Tüm sabit iş kuralları (tek kaynak)
 │   ├── data/raw/                # 8 resmi veri seti (talep, mesafe, kapasiteler...)
 │   ├── src/
@@ -92,7 +111,7 @@ LoadIQ-LojistikOptimizasyonTeknofest26/
 │   │   └── checker.py           # Bağımsız doğrulayıcı (auto-grader)
 │   ├── tests/                   # pytest test paketi
 │   ├── outputs/                 # Üretilen teslim dosyaları
-│   ├── docs/                    # Kural spesifikasyonu, denetim raporu, görev sözleşmesi
+│   ├── docs/                    # Kural spesifikasyonu, veri denetim raporu, sistem tasarımı
 │   └── README.md
 │
 ├── README.md                    # Bu dosya
@@ -133,15 +152,19 @@ kör noktaları önlemek için bilinçli bir mühendislik kararıdır.
 ```bash
 git clone https://github.com/dildasoftware/LoadIQ-LojistikOptimizasyonTeknofest26.git
 cd LoadIQ-LojistikOptimizasyonTeknofest26/stage2_gelismis_cozum
-
 pip install -r requirements.txt
+```
+
+**Testleri çalıştır** (32/32 PASS beklenir):
+
+```bash
 python -m pytest tests/ -v
 ```
 
-Talep tahminini incelemek için:
+**Uçtan uca pipeline** — talep tahmini + taşıma planı üretir ve bağımsız checker ile doğrular (sonuç: PASS, 22.106.411 TL):
 
 ```bash
-python src/forecast.py
+python src/pipeline.py
 ```
 
 ---
@@ -167,7 +190,7 @@ python src/forecast.py
 
 | Katman | Teknoloji |
 |---|---|
-| Dil | Python 3.11+ |
+| Dil | Python 3.10+ |
 | Veri işleme | pandas, openpyxl, numpy |
 | Optimizasyon | İki fazlı greedy + konsolidasyon sezgiseli (saat birleştirme + milk-run) |
 | Test | pytest |
@@ -189,15 +212,15 @@ python src/forecast.py
 
 ## 👥 Takım
 
-<div align="center">
+**Takım NASİP** — TEKNOFEST 2026 · Lojistik & Ulaştırma Kategorisi
 
-**Takım NASİP**
+| Üye | Rol |
+|---|---|
+| **Dilara Bilişik** | Takım Kaptanı |
+| **Fatma Elarid** | Takım Üyesi |
+| **Meryem Tekeli** | Takım Üyesi |
 
-TEKNOFEST 2026 · Lojistik & Ulaştırma Kategorisi
-
-📧 bilbildilara77@gmail.com
-
-</div>
+📧 İletişim: bilbildilara77@gmail.com
 
 ---
 
