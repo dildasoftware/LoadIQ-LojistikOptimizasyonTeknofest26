@@ -169,7 +169,7 @@ python src/forecast.py
 |---|---|
 | Dil | Python 3.11+ |
 | Veri işleme | pandas, openpyxl, numpy |
-| Optimizasyon | Google OR-Tools (planlanan), greedy + lokal arama sezgiseli |
+| Optimizasyon | İki fazlı greedy + konsolidasyon sezgiseli (saat birleştirme + milk-run) |
 | Test | pytest |
 | Sürüm kontrolü | Git / GitHub |
 
